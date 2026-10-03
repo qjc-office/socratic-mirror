@@ -36,6 +36,15 @@ def write_atomic(path: Path, text: str) -> None:
         raise
 
 
+def write_unique(directory: Path, text: str, prefix: str = "extract-") -> Path:
+    """Write text to a new private file with a unique name in directory."""
+    ensure_private_dir(directory)
+    fd, name = tempfile.mkstemp(dir=str(directory), prefix=prefix, suffix=".txt")
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        fh.write(text)
+    return Path(name)
+
+
 def open_private(path: Path, append: bool) -> TextIO:
     """Open path for writing. A symlink at path is refused (O_NOFOLLOW)."""
     ensure_private_dir(path.parent)

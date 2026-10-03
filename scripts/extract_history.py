@@ -15,7 +15,7 @@ from typing import List, NamedTuple, Optional, Tuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from redact import redact  # noqa: E402
-from safe_io import write_atomic  # noqa: E402
+from safe_io import write_atomic, write_unique  # noqa: E402
 
 MAX_UTTERANCE = 1000
 MAX_LINE = 2_000_000  # chars; longer jsonl lines are pastes or tool output, skipped unread
@@ -231,7 +231,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--max-chars", type=int, default=60000)
     p.add_argument("--projects-dir", default=default_dir)
     p.add_argument("--cwd", default=os.getcwd())
-    p.add_argument("--out")
+    p.add_argument("--out", help="write to this file (mode 600) instead of stdout")
+    p.add_argument("--out-dir", help="write to a new unique file in this folder and print its path")
     return p
 
 
@@ -263,14 +264,17 @@ def main(argv: Optional[list] = None) -> int:
               f"omitted={got.total - len(lines)}, malformed={got.malformed}, "
               f"oversized={got.oversized}, unreadable={skipped + got.unreadable}")
     body = "\n".join([header, *lines]) + "\n"
-    if args.out:
-        try:
+    try:
+        if args.out_dir:
+            print(write_unique(Path(args.out_dir).expanduser(), body))
+        elif args.out:
             write_atomic(Path(args.out).expanduser(), body)
-        except OSError as exc:
-            print(f"cannot write --out: {exc}", file=sys.stderr)
-            return EXIT_USAGE
-    else:
-        sys.stdout.write(body)
+    except OSError as exc:
+        print(f"cannot write output: {exc}", file=sys.stderr)
+        return EXIT_USAGE
+    if args.out or args.out_dir:
+        return EXIT_OK
+    sys.stdout.write(body)
     return EXIT_OK
 
 

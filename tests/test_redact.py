@@ -75,3 +75,9 @@ def test_camel_case_colon_keys_masked():
 def test_escaped_quote_inside_json_value_masked():
     out = redact('{"password":"prefix\\"synthetic-private-value"}')
     assert "synthetic-private-value" not in out
+
+
+def test_nested_colon_keys_masked():
+    for text in ("config: {apiKey: demo_value}", "credentials:\n  password: demo_value",
+                 "tokens:\n  client_secret: demo_value"):
+        assert "demo_value" not in redact(text), text

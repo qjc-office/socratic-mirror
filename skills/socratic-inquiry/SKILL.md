@@ -19,13 +19,14 @@ You are running socratic-mirror. The loader showed this skill's base directory; 
 
 ## 3. 자료 준비 (심문·triad 공통)
 1. Bash로 실행한다:
-   `python3 "SKILL_DIR/../../scripts/extract_history.py" --out "$HOME/.socratic-mirror/cache/extract.txt" <인자>`
+   `python3 "SKILL_DIR/../../scripts/extract_history.py" --out-dir "$HOME/.socratic-mirror/cache" <인자>`
+   성공하면 표준 출력 마지막 줄이 이번 실행 전용 추출 파일 경로다(EXTRACT). 다른 세션과 섞이지 않도록 반드시 이 경로만 쓴다.
 2. 종료 코드별 처리:
    - 0: 계속
    - 2: "이 범위에 대화 기록이 없습니다"라고 말하고, `--days 90`이나 `--all-projects`로 다시 실행하라고 안내한 뒤 끝낸다. 전제를 지어내지 않는다.
    - 3: 기록 형식이 바뀌었을 수 있다고 알리고 저장소 이슈 등록을 권한 뒤 끝낸다.
    - 64 또는 python3 없음: 오류 내용과 Python 3.9+ 설치 안내를 보여 주고 끝낸다.
-3. Agent 도구로 `socratic-mirror:premise-miner`를 부른다. 프롬프트에 추출 파일 경로와, `$HOME/.socratic-mirror/log.md`가 있으면 그 경로를 넣는다.
+3. Agent 도구로 `socratic-mirror:premise-miner`를 부른다. 프롬프트에 EXTRACT 경로와, `$HOME/.socratic-mirror/log.md`가 있으면 그 경로를 넣는다. 결과를 받으면 Bash로 `rm -f -- "<EXTRACT 경로>"`를 실행해 그 파일 하나만 지운다.
 4. 결과가 `INSUFFICIENT`면 판단할 재료가 부족하다고 말하고 `--days` 확대나 `--all-projects`를 안내한 뒤 끝낸다.
 
 ## 4. 심문 모드

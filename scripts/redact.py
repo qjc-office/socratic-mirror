@@ -31,19 +31,35 @@ _ANY_ASSIGN = re.compile(
     re.IGNORECASE,
 )
 # client_secret: ..., apiKey: ..., password: ...  A colon only counts for compound
-# (snake, kebab or camelCase) names or the
-# bare word password, so prose like "key: ..." or "Secret: ..." survives.
-_COLON_ASSIGN = re.compile(r"\b([A-Za-z][\w\-]*)(\s*:\s*)" + _VALUE)
+# (snake, kebab or camelCase) names or the bare word password, so prose like
+# "key: ..." or "Secret: ..." survives. Only key + separator is consumed while
+# scanning, so a parent key ("config: {apiKey: v}") never swallows a nested one.
+_COLON_KEY = re.compile(r"\b([A-Za-z][\w\-]*)(\s*:\s*)")
+_VALUE_RE = re.compile(_VALUE)
 _SECRET_RE = re.compile(_SECRET_WORDS, re.IGNORECASE)
 
 
-def _mask_colon(m: "re.Match") -> str:
-    name = m.group(1)
-    camel = re.search(r"[a-z][A-Z]", name)
-    compound = ("_" in name or "-" in name or camel) and _SECRET_RE.search(name)
-    if compound or name.lower() in ("password", "passwd"):
-        return m.group(1) + m.group(2) + MASK
-    return m.group(0)
+def _is_secret_colon_key(name: str) -> bool:
+    if name.lower() in ("password", "passwd"):
+        return True
+    compound = "_" in name or "-" in name or re.search(r"[a-z][A-Z]", name)
+    return bool(compound and _SECRET_RE.search(name))
+
+
+def _mask_colon_values(text: str) -> str:
+    out = []
+    pos = 0
+    for m in _COLON_KEY.finditer(text):
+        if m.start() < pos or not _is_secret_colon_key(m.group(1)):
+            continue
+        value = _VALUE_RE.match(text, m.end())
+        if not value:
+            continue
+        out.append(text[pos:m.end()])
+        out.append(MASK)
+        pos = value.end()
+    out.append(text[pos:])
+    return "".join(out)
 
 
 def redact(text: str) -> str:
@@ -52,4 +68,4 @@ def redact(text: str) -> str:
     text = _QUOTED_KEY.sub(lambda m: m.group(1) + m.group(2) + m.group(1) + m.group(3) + MASK, text)
     text = _UPPER_ASSIGN.sub(lambda m: m.group(1) + m.group(2) + MASK, text)
     text = _ANY_ASSIGN.sub(lambda m: m.group(1) + m.group(2) + MASK, text)
-    return _COLON_ASSIGN.sub(_mask_colon, text)
+    return _mask_colon_values(text)

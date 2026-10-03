@@ -39,7 +39,7 @@ def test_skill_contract():
     assert fm["name"] == "socratic-inquiry"
     body = path.read_text(encoding="utf-8")
     for must in ("아포리아", "Aporia", "삼중 아포리아", "109", "그만", "stop",
-                 "10", "extract_history.py", "append_log.py", "premise-miner",
+                 "10", "extract_history.py", "--out-dir", "append_log.py", "premise-miner",
                  "INSUFFICIENT", "close", "triad", "references/lenses.md",
                  "위로 없이 질문만"):
         assert must in body, must

@@ -218,3 +218,15 @@ def test_unreadable_file_skipped_and_counted(projects, capsys):
         os.chmod(bad, 0o600)
     out = capsys.readouterr().out
     assert "읽히는 말" in out and "unreadable=" in out.splitlines()[0]
+
+
+def test_out_dir_gives_each_run_its_own_private_file(projects, tmp_path, capsys):
+    write_session(projects / "-proj", "a", [user("고유 파일")])
+    out_dir = tmp_path / "cache"
+    assert run(projects, "--out-dir", str(out_dir)) == eh.EXIT_OK
+    first = Path(capsys.readouterr().out.strip())
+    assert run(projects, "--out-dir", str(out_dir)) == eh.EXIT_OK
+    second = Path(capsys.readouterr().out.strip())
+    assert first != second and first.parent == second.parent == out_dir
+    assert "고유 파일" in first.read_text(encoding="utf-8")
+    assert stat.S_IMODE(os.stat(second).st_mode) == 0o600
