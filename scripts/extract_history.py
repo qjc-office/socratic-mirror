@@ -38,12 +38,15 @@ def extract_text(record: dict) -> Optional[str]:
         return None
     if record.get("userType", "external") != "external":
         return None
-    content = (record.get("message") or {}).get("content")
+    message = record.get("message")
+    if not isinstance(message, dict):
+        return None
+    content = message.get("content")
     if isinstance(content, str):
         parts = [content]
     elif isinstance(content, list):
-        parts = [b.get("text", "") for b in content
-                 if isinstance(b, dict) and b.get("type") == "text"]
+        parts = [b["text"] for b in content
+                 if isinstance(b, dict) and b.get("type") == "text" and isinstance(b.get("text"), str)]
     else:
         return None
     text = TAG_BLOCK.sub("", "\n".join(parts)).strip()
@@ -107,6 +110,10 @@ def first_cwd(path: Path, max_lines: int = 200) -> Optional[str]:
     return None
 
 
+def _cwd_matches(cwd: Optional[str], root: str, matches) -> bool:
+    return cwd is not None and matches(cwd, root)
+
+
 def find_session_files(projects_dir: Path, root: Optional[str], cutoff: datetime,
                        subtree: bool = True) -> List[Path]:
     """root=None means all projects. subtree=False matches the exact folder only."""
@@ -120,10 +127,8 @@ def find_session_files(projects_dir: Path, root: Optional[str], cutoff: datetime
         if not recent:
             continue
         if root is not None:
-            cwd = first_cwd(files[0])
             matches = is_within if subtree else same_path
-            if cwd is None or not matches(cwd, root):
-                continue
+            recent = [f for f in recent if _cwd_matches(first_cwd(f), root, matches)]
         found.extend(recent)
     return found
 
@@ -156,6 +161,8 @@ def render(rows, max_chars: int) -> Tuple[List[str], int]:
     for ts, session, text in reversed(rows):
         line = f"{ts.astimezone().date().isoformat()} | {session[:8]} | {text}"
         if used + len(line) + 1 > max_chars:
+            if not lines:  # never return nothing: cut the newest line to fit
+                lines.append(line[:max_chars - 2] + "…")
             break
         lines.append(line)
         used += len(line) + 1

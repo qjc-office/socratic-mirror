@@ -139,3 +139,20 @@ def test_non_git_cwd_matches_exactly(tmp_path, projects, capsys):
     assert run(projects, cwd=str(home)) == eh.EXIT_OK
     out = capsys.readouterr().out
     assert "홈에서 한 말" in out and "하위 프로젝트 말" not in out
+
+
+def test_mixed_cwd_files_in_one_folder(projects, capsys):
+    folder = projects / "shared"
+    write_session(folder, "mine", [user("내 세션 말", cwd="/proj")])
+    newer = write_session(folder, "other", [user("남의 세션 말", cwd="/elsewhere", session="s-0002-bbbb")])
+    os.utime(newer, (time.time() + 60, time.time() + 60))
+    assert run(projects) == eh.EXIT_OK
+    out = capsys.readouterr().out
+    assert "내 세션 말" in out and "남의 세션 말" not in out
+
+
+def test_tiny_budget_still_returns_newest_line(projects, capsys):
+    write_session(projects / "-proj", "a", [user("길다 " * 200)])
+    assert run(projects, "--max-chars", "200") == eh.EXIT_OK
+    lines = capsys.readouterr().out.splitlines()
+    assert len(lines) == 2 and len(lines[1]) <= 200 and lines[1].endswith("…")

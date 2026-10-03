@@ -31,3 +31,14 @@ def test_empty_stdin_rejected(tmp_path, monkeypatch):
     monkeypatch.setenv("SOCRATIC_MIRROR_HOME", str(tmp_path))
     assert append_log.main(["--project", "a"], io.StringIO("   \n")) == 1
     assert not (tmp_path / "log.md").exists()
+
+
+def test_project_defaults_to_cwd_name_without_shell(tmp_path, monkeypatch):
+    monkeypatch.setenv("SOCRATIC_MIRROR_HOME", str(tmp_path / "home"))
+    weird = tmp_path / 'x$(touch pwned)"; echo "'
+    weird.mkdir()
+    monkeypatch.chdir(weird)
+    assert append_log.main([], io.StringIO("항목")) == 0
+    text = (tmp_path / "home" / "log.md").read_text(encoding="utf-8")
+    assert '· x$(touch pwned)"; echo "' in text
+    assert not (weird / "pwned").exists()

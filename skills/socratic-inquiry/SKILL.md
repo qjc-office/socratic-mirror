@@ -52,5 +52,5 @@ You are running socratic-mirror. The loader showed this skill's base directory; 
    - 진짜 답해야 했던 질문: <한 줄>
    - 오늘 당장 바꿀 행동 하나: <한 줄>
    - 이번 주 액션 3개: 1. … 2. … 3. …
-3. 같은 내용을 Bash로 기록한다. 프로젝트 이름은 현재 폴더 이름이다.
-   `python3 "SKILL_DIR/../../scripts/append_log.py" --project "<폴더 이름>"`에 stdin으로 `- 무너진 전제: …`와 위 네 항목을 넘긴다. 실패하면 기록 실패 사실만 알린다.
+3. 같은 내용을 Bash로 기록한다. 프로젝트 이름은 스크립트가 현재 폴더에서 직접 읽으므로 인자로 넘기지 않는다. 폴더 이름이나 사용자 문장을 명령줄에 끼워 넣지 말고, 본문은 따옴표 친 heredoc(`<<'SM_EOF'`)으로만 넘긴다.
+   `python3 "SKILL_DIR/../../scripts/append_log.py" <<'SM_EOF'` 다음 줄부터 `- 무너진 전제: …`와 위 네 항목, 마지막 줄에 `SM_EOF`. 실패하면 기록 실패 사실만 알린다.

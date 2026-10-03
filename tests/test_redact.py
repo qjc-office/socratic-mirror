@@ -42,3 +42,14 @@ def test_plain_prose_untouched():
 def test_words_containing_sk_dash_untouched():
     text = "task-management-dashboard-v2 와 risk-assessment-checklist-final"
     assert redact(text) == text
+
+
+def test_bare_secret_word_assignments_masked():
+    out = redact("TOKEN=SYNTHETIC_VALUE_1 SECRET: SYNTHETIC_VALUE_2 password=SYNTHETIC_VALUE_3")
+    assert "SYNTHETIC_VALUE" not in out
+
+
+def test_bearer_header_masked():
+    bearer = "Bear" + "er " + "abcdefghijklmnopqrstuvwxyz012345"
+    out = redact("Authorization: " + bearer)
+    assert "abcdefghijklmnopqrstuvwxyz012345" not in out

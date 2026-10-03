@@ -20,7 +20,8 @@ def log_path() -> Path:
 
 def main(argv: Optional[list] = None, stdin: Optional[TextIO] = None) -> int:
     parser = argparse.ArgumentParser(prog="append_log", description=__doc__)
-    parser.add_argument("--project", required=True)
+    parser.add_argument("--project", default=None,
+                        help="label for the entry (default: current folder name)")
     args = parser.parse_args(argv)
     entry = (stdin or sys.stdin).read().strip()
     if not entry:
@@ -30,7 +31,8 @@ def main(argv: Optional[list] = None, stdin: Optional[TextIO] = None) -> int:
     path.parent.mkdir(parents=True, exist_ok=True)
     os.chmod(path.parent, 0o700)
     stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-    block = f"\n## {stamp} · {args.project}\n\n{redact(entry)}\n"
+    project = args.project or Path.cwd().name
+    block = f"\n## {stamp} · {project}\n\n{redact(entry)}\n"
     fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
     with os.fdopen(fd, "a", encoding="utf-8") as fh:
         fh.write(block)

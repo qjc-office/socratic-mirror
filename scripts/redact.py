@@ -12,15 +12,16 @@ _TOKEN_PATTERNS = [
     re.compile(r"\bxox[abprs]-[A-Za-z0-9\-]{10,}"),
     re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
     re.compile(r"\beyJ[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}"),
+    re.compile(r"\bbearer\s+[A-Za-z0-9._~+/\-]{16,}=*", re.IGNORECASE),
 ]
 _SECRET_WORDS = r"(?:KEY|TOKEN|SECRET|PASSWORD|PASSWD)"
 # OPENAI_API_KEY=..., DB_PASSWORD: "..."  (all-caps names, = or :)
 _UPPER_ASSIGN = re.compile(
-    r"\b([A-Z][A-Z0-9_]*" + _SECRET_WORDS + r"[A-Z0-9_]*)(\s*[=:]\s*)(\"[^\"]*\"|'[^']*'|\S+)"
+    r"\b((?:[A-Z][A-Z0-9_]*)?" + _SECRET_WORDS + r"[A-Z0-9_]*)(\s*[=:]\s*)(\"[^\"]*\"|'[^']*'|\S+)"
 )
 # api_key=..., authToken=...  (any case, = only, so prose like "key: ..." survives)
 _ANY_ASSIGN = re.compile(
-    r"\b([A-Za-z_][A-Za-z0-9_]*" + _SECRET_WORDS + r"[A-Za-z0-9_]*)(=)(\"[^\"]*\"|'[^']*'|\S+)",
+    r"\b((?:[A-Za-z_][A-Za-z0-9_]*)?" + _SECRET_WORDS + r"[A-Za-z0-9_]*)(=)(\"[^\"]*\"|'[^']*'|\S+)",
     re.IGNORECASE,
 )
 

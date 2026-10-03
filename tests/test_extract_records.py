@@ -56,3 +56,10 @@ def test_malformed_lines_counted_not_fatal():
     assert parse_line("[1, 2]") is None
     assert parse_line("") is None
     assert parse_line('{"type": "user"}') == {"type": "user"}
+
+
+def test_odd_message_shapes_do_not_crash():
+    assert extract_text({"type": "user", "message": "plain string"}) is None
+    assert extract_text({"type": "user", "message": {"content": [{"type": "text", "text": 42}]}}) is None
+    assert extract_text({"type": "user", "message": {"content": [{"type": "text", "text": None},
+                                                                  {"type": "text", "text": "살아남음"}]}}) == "살아남음"
