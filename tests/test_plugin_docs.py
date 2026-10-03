@@ -31,3 +31,24 @@ def test_lenses_reference_covers_three_lenses():
     body = (ROOT / "skills" / "socratic-inquiry" / "references" / "lenses.md").read_text(encoding="utf-8")
     for must in ("엘렌코스", "Elenchus", "정명", "Rectification of names", "십이연기", "Dependent origination"):
         assert must in body, must
+
+
+def test_skill_contract():
+    path = ROOT / "skills" / "socratic-inquiry" / "SKILL.md"
+    fm = frontmatter(path)
+    assert fm["name"] == "socratic-inquiry"
+    body = path.read_text(encoding="utf-8")
+    for must in ("아포리아", "Aporia", "삼중 아포리아", "109", "그만", "stop",
+                 "10", "extract_history.py", "append_log.py", "premise-miner",
+                 "INSUFFICIENT", "close", "triad", "references/lenses.md",
+                 "위로 없이 질문만"):
+        assert must in body, must
+
+
+def test_command_delegates_to_skill():
+    path = ROOT / "commands" / "socrates.md"
+    fm = frontmatter(path)
+    assert "close" in fm["argument-hint"] and "triad" in fm["argument-hint"]
+    body = path.read_text(encoding="utf-8")
+    assert "socratic-mirror:socratic-inquiry" in body
+    assert "$ARGUMENTS" in body
