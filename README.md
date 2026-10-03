@@ -1,77 +1,77 @@
 # socratic-mirror
 
-<p align="center"><img src="assets/socrates-hero.jpg" alt="소크라테스가 선글라스를 끼고 &quot;Know thyself.&quot;라고 말하는 그림" width="100%"></p>
+<p align="center"><img src="assets/socrates-hero.jpg" alt="Socrates in sunglasses saying &quot;Know thyself.&quot;" width="100%"></p>
 
-> Claude Code 대화 기록으로 하는 소크라테스식 자기 심문
+> Socratic self-interrogation over your Claude Code history
 
-[English](README.en.md)
+**English** · [한국어](README.ko.md) · [简体中文](README.zh.md)
 
-Claude Code와 나눈 지난 대화에서 내가 반복해서 근거 없이 깔고 있는 전제를 하나 찾아, 답 없이 질문만으로 되묻는 플러그인이에요. 조언도 위로도 하지 않아요. 내가 "그 전제가 틀렸다"고 인정하면 `아포리아.` 한 마디를 남기고 멈춥니다.
+A Claude Code plugin that finds one premise you keep assuming, without evidence, across your past conversations with Claude, and questions it. No advice, no comfort. When you admit the premise is wrong, it says `Aporia.` and stops.
 
 ```
 > /socrates
-이 도구는 위로 없이 질문만 합니다. 원치 않으면 언제든 `그만`이라고 입력하세요.
-당신은 반복해서 "혼자 해야 일이 제대로 된다"를 전제합니다.
-  "그냥 내가 하는 게 빨라" (2026-09-12) / "맡기면 결국 다시 해야 돼" (2026-09-20)
-지난주 외주에 맡긴 일이 하루 만에 끝났을 때, 다시 손본 게 있었나요?
-> ...없었어.
+This tool asks questions only, without comfort. Type `stop` anytime to end.
+You keep assuming "customers only care about price".
+  "they'll just pick the cheapest" (2026-09-02) / "price is the only lever" (2026-09-18)
+Why did your most expensive client renew twice?
+> ...they were happy with the support.
 ```
 
-(위 대화는 설명용으로 지어낸 예시예요.)
+(The exchange above is a made-up example.)
 
-## 설치
+## Install
 
-Claude Code에서 다음 두 줄을 실행하세요.
+Run these two lines in Claude Code:
 
 ```
 /plugin marketplace add qjc-office/socratic-mirror
 /plugin install socratic-mirror
 ```
 
-Python 3.9 이상이 필요해요. macOS에는 기본으로 들어 있습니다.
+Requires Python 3.9 or later (preinstalled on macOS).
 
-## 사용법
+## Usage
 
-| 명령 | 하는 일 |
+| Command | What it does |
 |---|---|
-| `/socrates` | 현재 프로젝트의 최근 30일 대화에서 전제 하나를 골라 심문 |
-| `/socrates triad` | 소크라테스(반례), 공자(정명: 역할 이름과 행동 대조), 부처(십이연기: 집착의 첫 접촉 추적) 세 틀로 번갈아 질문. 셋의 결론이 같은 지점을 가리킬 때만 `삼중 아포리아.` |
-| `/socrates close` | 심문을 마무리하며 세 줄(착각하던 것, 진짜 질문, 오늘 바꿀 행동)과 이번 주 액션 3개를 정리하고 로그에 남김 |
-| `--days N` | 기간 바꾸기 (기본 30일) |
-| `--all-projects` | 모든 프로젝트의 대화를 대상으로 |
+| `/socrates` | Picks one premise from the last 30 days of this project's conversations and questions it |
+| `/socrates triad` | Alternates three lenses: Socrates (counter-examples), Confucius (rectification of names: does your role match what you did?), Buddha (dependent origination: trace the first contact behind the attachment). Declares `Triple aporia.` only when all three land on the same point |
+| `/socrates close` | Wraps up with three lines (what you had wrong, the question you should have been answering, one change for today) plus three actions for this week, and saves them to the log |
+| `--days N` | Change the time window (default 30) |
+| `--all-projects` | Use conversations from every project |
 
-"현재 프로젝트"는 git 저장소 안이면 그 저장소 전체, 아니면 지금 폴더에서 시작한 대화예요. 언제든 `그만`이라고 입력하면 멈춥니다.
+"This project" means the whole git repository when you are inside one, otherwise conversations started in the current folder. Type `stop` anytime.
 
-## 개인정보
+## Privacy
 
-- 대화 기록(`~/.claude/projects`)은 내 컴퓨터에서 로컬로 읽어요. 플러그인은 네트워크에 아무것도 보내지 않아요.
-- 다만 추출된 발화는 평소 대화처럼 모델 제공자(Anthropic)에게 전송돼요. Claude에게 직접 붙여넣는 것과 같다고 보면 됩니다.
-- API 키처럼 보이는 문자열은 가려서 넘기지만, 모든 시크릿을 잡는다고 보장하지는 못해요.
-- 심문 로그는 `~/.socratic-mirror/log.md`에 본인만 읽을 수 있는 권한(600)으로 저장돼요.
-- 추출한 발화는 실행마다 `~/.socratic-mirror/cache/`에 임시 파일로 만들고 분석이 끝나면 바로 지워요. 정리되지 못하고 남은 파일은 다음 실행 때 1시간이 지난 것부터 지웁니다.
-- 전부 지우려면 `~/.socratic-mirror` 폴더를 삭제하세요.
+- Your history (`~/.claude/projects`) is read locally. The plugin itself makes no network calls.
+- The extracted utterances are sent to the model provider (Anthropic) like any other conversation, the same as pasting them into Claude yourself.
+- Strings that look like API keys are masked first, but no masking catches every secret.
+- The session log lives at `~/.socratic-mirror/log.md`, readable only by you (mode 600).
+- Each run writes the extracted utterances to a temporary file in `~/.socratic-mirror/cache/` and deletes it right after analysis. Leftovers older than an hour are removed on the next run.
+- Delete `~/.socratic-mirror` to remove everything.
 
-## 안전
+## Safety
 
-위로 없이 질문만 하는 도구라 마음이 힘들 때는 맞지 않을 수 있어요. 대화에서 위기 신호가 보이면 심문을 멈추고 도움받을 곳을 안내해요(한국: 자살예방상담 109, 24시간). 이 플러그인은 상담이나 치료를 대신하지 않습니다.
+A questions-only tool is not for hard days. If the conversation shows signs of crisis, it stops interrogating and points you to support (in Korea, 109; elsewhere, your local emergency number or crisis line). It is not a substitute for counseling or therapy.
 
-## 출처
+## Attribution
 
-SNS에서 공유된 프롬프트를 각색했어요.
+The interrogation prompts were adapted from prompts shared on social media.
 
-## 알려진 한계
+## Known limits
 
-- Claude Code의 대화 기록 형식은 공개 사양이 아니라 업데이트로 바뀔 수 있어요. 기록은 있는데 추출이 0건이면 형식 변경을 알리고 멈춥니다(종료 코드 3). 이슈로 알려 주세요.
-- 직접 붙여넣은 로그나 코드도 내가 쓴 말로 잡혀요. 분석 단계에서 걸러내지만 완벽하지는 않아요.
-- 기간(`--days`)은 빠른 처리를 위해 먼저 파일 수정 시각으로 거릅니다. 백업에서 복원해 수정 시각이 오래된 세션 파일은 빠질 수 있어요.
+- Claude Code's history format is not a public spec and may change. If history exists but nothing can be extracted, the plugin says so and stops (exit code 3). Please open an issue.
+- Logs or code you pasted are counted as your own words. The analysis step filters them, imperfectly.
+- For speed, `--days` first filters session files by modification time. A session file restored from backup with an old timestamp may be skipped.
 
-## 개발
+## Development
 
 ```
-python3 -m pytest              # 단위 테스트
-bash scripts/run-evals.sh      # 행동 검증 (Claude Code 세션 밖 일반 터미널에서)
+python3 -m pytest              # unit tests
+bash scripts/run-evals.sh      # behaviour evals (run from a normal terminal, outside Claude Code)
 ```
 
-## 라이선스
+## License
 
 MIT

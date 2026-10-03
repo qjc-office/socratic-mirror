@@ -74,17 +74,20 @@ def test_eval_cases_are_well_formed():
 
 
 def test_readmes_cover_install_privacy_safety_attribution():
+    install = ("/plugin marketplace add qjc-office/socratic-mirror", "/plugin install socratic-mirror",
+               "~/.socratic-mirror/log.md", "109", "assets/socrates-hero.jpg")
     for name, musts in {
-        "README.md": ("/plugin marketplace add qjc-office/socratic-mirror", "/plugin install socratic-mirror",
-                      "로컬", "모델 제공자", "109", "SNS에서 공유된 프롬프트를 각색", "~/.socratic-mirror/log.md"),
-        "README.en.md": ("/plugin marketplace add qjc-office/socratic-mirror", "/plugin install socratic-mirror",
-                         "locally", "model provider", "crisis", "adapted from prompts shared on social media",
-                         "~/.socratic-mirror/log.md"),
+        "README.md": install + ("locally", "model provider", "crisis",
+                                "adapted from prompts shared on social media"),
+        "README.ko.md": install + ("로컬", "모델 제공자", "SNS에서 공유된 프롬프트를 각색"),
+        "README.zh.md": install + ("本机", "模型提供方", "改编自社交媒体"),
     }.items():
         body = (ROOT / name).read_text(encoding="utf-8")
         for must in musts:
             assert must in body, (name, must)
-        assert "하버드" not in body and "Harvard" not in body
+        assert "하버드" not in body and "Harvard" not in body and "哈佛" not in body
+        for other in ("README.md", "README.ko.md", "README.zh.md"):
+            assert other == name or f"({other})" in body, (name, other)
 
 
 def test_skill_deletes_extract_even_on_failure():
@@ -98,8 +101,8 @@ def test_premise_miner_has_data_boundary():
 
 
 def test_readmes_describe_temporary_extract():
-    assert "extract.txt" not in (ROOT / "README.md").read_text(encoding="utf-8")
-    assert "extract.txt" not in (ROOT / "README.en.md").read_text(encoding="utf-8")
+    for name in ("README.md", "README.ko.md", "README.zh.md"):
+        assert "extract.txt" not in (ROOT / name).read_text(encoding="utf-8")
 
 
 def test_skill_reports_partial_extraction():
