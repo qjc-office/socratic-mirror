@@ -230,3 +230,11 @@ def test_out_dir_gives_each_run_its_own_private_file(projects, tmp_path, capsys)
     assert first != second and first.parent == second.parent == out_dir
     assert "고유 파일" in first.read_text(encoding="utf-8")
     assert stat.S_IMODE(os.stat(second).st_mode) == 0o600
+
+
+def test_records_after_cd_elsewhere_excluded(projects, capsys):
+    write_session(projects / "-proj", "a", [user("프로젝트 안 발화", cwd="/proj"),
+                                            user("다른 곳으로 옮긴 뒤 발화", cwd="/elsewhere")])
+    assert run(projects) == eh.EXIT_OK
+    out = capsys.readouterr().out
+    assert "프로젝트 안 발화" in out and "다른 곳으로 옮긴 뒤 발화" not in out

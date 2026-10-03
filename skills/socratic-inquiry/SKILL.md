@@ -26,7 +26,7 @@ You are running socratic-mirror. The loader showed this skill's base directory; 
    - 2: "이 범위에 대화 기록이 없습니다"라고 말하고, `--days 90`이나 `--all-projects`로 다시 실행하라고 안내한 뒤 끝낸다. 전제를 지어내지 않는다.
    - 3: 기록 형식이 바뀌었을 수 있다고 알리고 저장소 이슈 등록을 권한 뒤 끝낸다.
    - 64 또는 python3 없음: 오류 내용과 Python 3.9+ 설치 안내를 보여 주고 끝낸다.
-3. Agent 도구로 `socratic-mirror:premise-miner`를 부른다. 프롬프트에 EXTRACT 경로와, `$HOME/.socratic-mirror/log.md`가 있으면 그 경로를 넣는다. 결과를 받으면 Bash로 `rm -f -- "<EXTRACT 경로>"`를 실행해 그 파일 하나만 지운다.
+3. Agent 도구로 `socratic-mirror:premise-miner`를 부른다. 프롬프트에 EXTRACT 경로와, `$HOME/.socratic-mirror/log.md`가 있으면 그 경로를 넣는다. 에이전트 호출이 성공이든 실패든(오류·타임아웃·거부 포함) 다음 단계로 가기 전에 Bash로 `rm -f -- "<EXTRACT 경로>"`를 실행해 그 파일 하나만 지운다.
 4. 결과가 `INSUFFICIENT`면 판단할 재료가 부족하다고 말하고 `--days` 확대나 `--all-projects`를 안내한 뒤 끝낸다.
 
 ## 4. 심문 모드

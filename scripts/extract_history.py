@@ -168,8 +168,12 @@ class Collected(NamedTuple):
     unreadable: int
 
 
-def collect(files: List[Path], cutoff: datetime, max_chars: int) -> Collected:
-    """Keep a bounded min-heap so memory stays near max_chars, not the whole history."""
+def collect(files: List[Path], cutoff: datetime, max_chars: int,
+            in_scope=None) -> Collected:
+    """Keep a bounded min-heap so memory stays near max_chars, not the whole history.
+
+    in_scope(cwd) filters records by their own cwd (a session can cd elsewhere).
+    """
     heap: list = []
     size = total = malformed = oversized = unreadable = seq = 0
     sessions = set()
@@ -193,6 +197,9 @@ def collect(files: List[Path], cutoff: datetime, max_chars: int) -> Collected:
                 text = extract_text(rec)
                 ts = parse_timestamp(rec.get("timestamp"))
                 if text is None or ts is None or ts < cutoff:
+                    continue
+                cwd = rec.get("cwd")
+                if in_scope is not None and isinstance(cwd, str) and not in_scope(cwd):
                     continue
                 session = str(rec.get("sessionId") or path.stem)
                 line = clean_line(text)
@@ -253,7 +260,11 @@ def main(argv: Optional[list] = None) -> int:
         print("no session history in range; try a larger --days or --all-projects",
               file=sys.stderr)
         return EXIT_NO_HISTORY
-    got = collect(files, cutoff, args.max_chars)
+    in_scope = None
+    if root is not None:
+        matches = is_within if is_git else same_path
+        in_scope = lambda cwd: matches(cwd, root)  # noqa: E731
+    got = collect(files, cutoff, args.max_chars, in_scope)
     if not got.total:
         print("session files exist but no human utterances were extracted; "
               "the history format may have changed", file=sys.stderr)

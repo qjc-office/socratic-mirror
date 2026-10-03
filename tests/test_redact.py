@@ -81,3 +81,7 @@ def test_nested_colon_keys_masked():
     for text in ("config: {apiKey: demo_value}", "credentials:\n  password: demo_value",
                  "tokens:\n  client_secret: demo_value"):
         assert "demo_value" not in redact(text), text
+
+
+def test_yaml_doubled_single_quote_masked():
+    assert "secret-suffix" not in redact("password: 'prefix''secret-suffix'")

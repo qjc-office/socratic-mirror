@@ -85,3 +85,8 @@ def test_readmes_cover_install_privacy_safety_attribution():
         for must in musts:
             assert must in body, (name, must)
         assert "하버드" not in body and "Harvard" not in body
+
+
+def test_skill_deletes_extract_even_on_failure():
+    body = (ROOT / "skills" / "socratic-inquiry" / "SKILL.md").read_text(encoding="utf-8")
+    assert "성공이든 실패든" in body
