@@ -70,3 +70,8 @@ def test_prose_with_colon_still_untouched():
 def test_camel_case_colon_keys_masked():
     for text in ("apiKey: FAKE_VALUE_6", "clientSecret: FAKE_VALUE_7", "authToken: FAKE_VALUE_8"):
         assert "FAKE_VALUE" not in redact(text), text
+
+
+def test_escaped_quote_inside_json_value_masked():
+    out = redact('{"password":"prefix\\"synthetic-private-value"}')
+    assert "synthetic-private-value" not in out

@@ -63,3 +63,7 @@ def test_odd_message_shapes_do_not_crash():
     assert extract_text({"type": "user", "message": {"content": [{"type": "text", "text": 42}]}}) is None
     assert extract_text({"type": "user", "message": {"content": [{"type": "text", "text": None},
                                                                   {"type": "text", "text": "살아남음"}]}}) == "살아남음"
+
+
+def test_value_on_next_line_masked_before_flattening():
+    assert "synthetic-private-value" not in clean_line("API_KEY=\nsynthetic-private-value")

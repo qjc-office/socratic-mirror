@@ -76,7 +76,8 @@ def extract_text(record: dict) -> Optional[str]:
 
 
 def clean_line(text: str) -> str:
-    flat = redact(" ⏎ ".join(part.strip() for part in text.splitlines() if part.strip()))
+    # Redact the raw text first: a value on the line after "KEY=" must not escape.
+    flat = " ⏎ ".join(part.strip() for part in redact(text).splitlines() if part.strip())
     if len(flat) > MAX_UTTERANCE:
         flat = flat[:MAX_UTTERANCE] + "…"
     return flat
