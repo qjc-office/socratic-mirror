@@ -57,7 +57,7 @@ socratic-mirror/
 
 ### 2.1 extract_history.py
 
-- 입력 인자: `--days N`(기본 30), `--all-projects`(기본 끔, 끄면 현재 프로젝트만), `--max-chars`(기본 60000). 테스트·고급 사용자용으로 `--projects-dir`(기본 `~/.claude/projects`, 환경변수 `SOCRATIC_MIRROR_PROJECTS_DIR`), `--cwd`, `--out`(권한 600 파일로 원자적 교체), `--out-dir`(실행마다 고유한 600 파일을 만들고 경로를 출력, 1시간 넘은 `extract-*.txt` 잔여분 정리)을 둔다. 인자·쓰기 오류는 종료 코드 64.
+- 입력 인자: `--days N`(기본 30), `--all-projects`(기본 끔, 끄면 현재 프로젝트만), `--max-chars`(기본 60000). 테스트·고급 사용자용으로 `--projects-dir`(기본 `~/.claude/projects`, 환경변수 `SOCRATIC_MIRROR_PROJECTS_DIR`), `--cwd`, `--out`(권한 600 파일로 원자적 교체), `--out-dir`(실행마다 고유한 600 파일을 만들고 경로를 출력, 1시간 넘은 `extract-*.txt` 잔여분 정리), `--remove`(그 추출 파일 하나만 삭제, 다른 파일·링크는 거부)을 둔다. `/socrates` 커맨드는 이 플러그인의 두 스크립트 실행만 미리 허용한다(`rm` 등 일반 셸 허용 없음). 인자·쓰기 오류는 종료 코드 64.
 - 범위 판정: 폴더 이름 규칙은 CLI 버전마다 달라(실측) 쓰지 않는다. 기간 안(파일 수정 시각)의 세션 파일 중 대상 경로 문자열이 들어 있는 파일만 빠르게 고른 뒤(원문 바이트 검사), 기록 줄마다 그 줄의 `cwd`로 판정한다. git 저장소 안에서 실행하면 git 루트와 같거나 그 아래, 밖이면 실행 폴더와 정확히 같은 경로만 포함한다. `cwd`가 없는 줄은 제외한다. 세션 중간에 다른 폴더로 `cd`한 발화도 이 규칙으로 나뉜다. 심볼릭 링크인 폴더·파일은 읽지 않는다. 일치 파일이 없으면 종료 코드 2.
 - 남기는 줄: `type == "user"`이고, `isMeta`가 아니며, `isSidechain`이 아닌 것. `message.content`가 문자열이면 그대로, 리스트면 `type == "text"` 블록만 쓴다.
 - 버리는 내용: `tool_result` 블록, `<command-name>`·`<local-command-*>`·`<system-reminder>`·`<task-notification>` 등의 태그 블록, 빈 문자열.

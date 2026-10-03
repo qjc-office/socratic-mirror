@@ -304,3 +304,15 @@ def test_symlinked_project_folder_ignored(projects, tmp_path, capsys):
     assert run(projects) == eh.EXIT_OK
     out = capsys.readouterr().out
     assert "진짜 세션" in out and "링크 폴더 속 내용" not in out
+
+
+def test_remove_deletes_only_extract_files(tmp_path):
+    ours = tmp_path / "extract-abc.txt"
+    ours.write_text("x", encoding="utf-8")
+    other = tmp_path / "notes.txt"
+    other.write_text("x", encoding="utf-8")
+    assert eh.main(["--remove", str(ours)]) == eh.EXIT_OK and not ours.exists()
+    assert eh.main(["--remove", str(other)]) == eh.EXIT_USAGE and other.exists()
+    link = tmp_path / "extract-link.txt"
+    link.symlink_to(other)
+    assert eh.main(["--remove", str(link)]) == eh.EXIT_USAGE and other.exists()

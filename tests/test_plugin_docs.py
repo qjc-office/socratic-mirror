@@ -108,3 +108,15 @@ def test_readmes_describe_temporary_extract():
 def test_skill_reports_partial_extraction():
     body = (ROOT / "skills" / "socratic-inquiry" / "SKILL.md").read_text(encoding="utf-8")
     assert "unreadable" in body and "oversized" in body
+
+
+def test_one_question_means_one_question_mark():
+    body = (ROOT / "skills" / "socratic-inquiry" / "SKILL.md").read_text(encoding="utf-8")
+    assert "물음표는 하나" in body
+
+
+def test_command_preapproves_only_extractor_and_cleanup():
+    fm = frontmatter(ROOT / "commands" / "socrates.md")
+    tools = fm.get("allowed-tools", "")
+    assert "extract_history.py" in tools and "append_log.py" in tools
+    assert "rm " not in tools and "Bash(*)" not in tools and '"Bash"' not in tools

@@ -251,7 +251,19 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--cwd", default=os.getcwd())
     p.add_argument("--out", help="write to this file (mode 600) instead of stdout")
     p.add_argument("--out-dir", help="write to a new unique file in this folder and print its path")
+    p.add_argument("--remove", help="delete one extract-*.txt file made by --out-dir, then exit")
     return p
+
+
+def remove_extract(path: Path) -> int:
+    """Delete a file this tool created. Anything else is refused."""
+    name = path.name
+    if not (name.startswith("extract-") and name.endswith(".txt")) or path.is_symlink() \
+            or not path.is_file():
+        print(f"refusing to remove {path}: not an extract file", file=sys.stderr)
+        return EXIT_USAGE
+    path.unlink()
+    return EXIT_OK
 
 
 def main(argv: Optional[list] = None) -> int:
@@ -260,6 +272,8 @@ def main(argv: Optional[list] = None) -> int:
         args = parser.parse_args(argv)
     except SystemExit:
         return EXIT_USAGE
+    if args.remove:
+        return remove_extract(Path(args.remove).expanduser())
     if args.days < 1 or args.max_chars < 200:
         print("--days must be >= 1 and --max-chars >= 200", file=sys.stderr)
         return EXIT_USAGE
