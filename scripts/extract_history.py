@@ -205,7 +205,7 @@ def collect(files: List[Path], cutoff: datetime, max_chars: int,
                 if text is None or ts is None or ts < cutoff:
                     continue
                 cwd = rec.get("cwd")
-                if in_scope is not None and isinstance(cwd, str) and not in_scope(cwd):
+                if in_scope is not None and not (isinstance(cwd, str) and in_scope(cwd)):
                     continue
                 session = str(rec.get("sessionId") or path.stem)
                 line = clean_line(text)

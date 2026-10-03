@@ -261,3 +261,12 @@ def test_non_ascii_project_path(tmp_path, projects, capsys):
     write_session(projects / "k", "a", [user("한글 경로 발화", cwd=str(proj))])
     assert run(projects, cwd=str(proj)) == eh.EXIT_OK
     assert "한글 경로 발화" in capsys.readouterr().out
+
+
+def test_records_without_cwd_excluded_in_project_scope(projects, capsys):
+    no_cwd = user("cwd 없는 발화", session="s-0002-bbbb")
+    del no_cwd["cwd"]
+    write_session(projects / "-proj", "a", [user("정상 발화"), no_cwd])
+    assert run(projects) == eh.EXIT_OK
+    out = capsys.readouterr().out
+    assert "정상 발화" in out and "cwd 없는 발화" not in out

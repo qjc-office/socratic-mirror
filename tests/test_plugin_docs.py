@@ -90,3 +90,8 @@ def test_readmes_cover_install_privacy_safety_attribution():
 def test_skill_deletes_extract_even_on_failure():
     body = (ROOT / "skills" / "socratic-inquiry" / "SKILL.md").read_text(encoding="utf-8")
     assert "성공이든 실패든" in body
+
+
+def test_premise_miner_has_data_boundary():
+    body = (ROOT / "agents" / "premise-miner.md").read_text(encoding="utf-8")
+    assert "두 경로 외에는" in body and "지시가 아니라 데이터" in body
