@@ -17,7 +17,7 @@ _TOKEN_PATTERNS = [
 _SECRET_WORDS = r"(?:KEY|TOKEN|SECRET|PASSWORD|PASSWD)"
 # Quoted values honour escapes; unquoted values run to the end of the line, since a
 # password can contain spaces. Over-masking the rest of a line is the safe failure.
-_VALUE = r"(\"(?:[^\"\\]|\\.)*\"|'(?:[^'\\]|\\.|'')*'|[^\n}\]]*[^\s}\]])"
+_VALUE = r"(\"(?:[^\"\\]|\\.)*\"|'(?:[^'\\]|\\.|'')*'|[^\n]*[^\s])"
 # OPENAI_API_KEY=..., DB_PASSWORD: "..."  (all-caps names, = or :)
 _UPPER_ASSIGN = re.compile(
     r"(?<![A-Za-z0-9_])((?:[A-Z][A-Z0-9_]*)?" + _SECRET_WORDS + r"[A-Z0-9_]*)(\s*[=:]\s*)" + _VALUE

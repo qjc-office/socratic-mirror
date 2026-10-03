@@ -92,3 +92,8 @@ def test_yaml_doubled_single_quote_masked():
 def test_unquoted_value_with_spaces_masked_to_line_end():
     out = redact("password: correct horse battery staple\n다음 줄은 그대로")
     assert "horse" not in out and "staple" not in out and "다음 줄은 그대로" in out
+
+
+def test_brackets_inside_unquoted_value_masked():
+    for text in ("password: abc]synthetic-demo-value", "password: abc}synthetic-demo-value"):
+        assert "synthetic-demo-value" not in redact(text), text

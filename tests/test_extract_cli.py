@@ -270,3 +270,27 @@ def test_records_without_cwd_excluded_in_project_scope(projects, capsys):
     assert run(projects) == eh.EXIT_OK
     out = capsys.readouterr().out
     assert "정상 발화" in out and "cwd 없는 발화" not in out
+
+
+def test_symlinked_session_file_ignored(projects, tmp_path, capsys):
+    write_session(projects / "-proj", "real", [user("진짜 세션")])
+    outside = write_session(tmp_path / "outside", "secret", [user("밖의 파일 내용")])
+    (projects / "-proj" / "link.jsonl").symlink_to(outside)
+    assert run(projects) == eh.EXIT_OK
+    out = capsys.readouterr().out
+    assert "진짜 세션" in out and "밖의 파일 내용" not in out
+
+
+def test_out_dir_prunes_stale_extracts(projects, tmp_path, capsys):
+    write_session(projects / "-proj", "a", [user("정리 확인")])
+    out_dir = tmp_path / "cache"
+    out_dir.mkdir()
+    stale = out_dir / "extract-old.txt"
+    stale.write_text("오래된 추출", encoding="utf-8")
+    old = time.time() - 7200
+    os.utime(stale, (old, old))
+    keep = out_dir / "notes.txt"
+    keep.write_text("남의 파일", encoding="utf-8")
+    os.utime(keep, (old, old))
+    assert run(projects, "--out-dir", str(out_dir)) == eh.EXIT_OK
+    assert not stale.exists() and keep.exists()

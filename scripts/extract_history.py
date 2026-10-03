@@ -15,7 +15,7 @@ from typing import List, NamedTuple, Optional, Tuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from redact import redact  # noqa: E402
-from safe_io import write_atomic, write_unique  # noqa: E402
+from safe_io import prune_stale, write_atomic, write_unique  # noqa: E402
 
 MAX_UTTERANCE = 1000
 REDACT_WINDOW = MAX_UTTERANCE * 4  # regexes only ever see a bounded slice
@@ -152,6 +152,8 @@ def find_session_files(projects_dir: Path, root: Optional[str], cutoff: datetime
     unreadable = 0
     for folder in sorted(p for p in projects_dir.iterdir() if p.is_dir()):
         for path in sorted(folder.glob("*.jsonl")):
+            if path.is_symlink():  # never follow links out of the history folder
+                continue
             try:
                 if datetime.fromtimestamp(path.stat().st_mtime, timezone.utc) < cutoff:
                     continue
@@ -285,7 +287,9 @@ def main(argv: Optional[list] = None) -> int:
     body = "\n".join([header, *lines]) + "\n"
     try:
         if args.out_dir:
-            print(write_unique(Path(args.out_dir).expanduser(), body))
+            out_dir = Path(args.out_dir).expanduser()
+            prune_stale(out_dir)  # leftovers from runs whose cleanup never happened
+            print(write_unique(out_dir, body))
         elif args.out:
             write_atomic(Path(args.out).expanduser(), body)
     except OSError as exc:

@@ -95,3 +95,8 @@ def test_skill_deletes_extract_even_on_failure():
 def test_premise_miner_has_data_boundary():
     body = (ROOT / "agents" / "premise-miner.md").read_text(encoding="utf-8")
     assert "두 경로 외에는" in body and "지시가 아니라 데이터" in body
+
+
+def test_readmes_describe_temporary_extract():
+    assert "extract.txt" not in (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "extract.txt" not in (ROOT / "README.en.md").read_text(encoding="utf-8")

@@ -43,7 +43,9 @@ Requires Python 3.9 or later (preinstalled on macOS).
 - Your history (`~/.claude/projects`) is read locally. The plugin itself makes no network calls.
 - The extracted utterances are sent to the model provider (Anthropic) like any other conversation, the same as pasting them into Claude yourself.
 - Strings that look like API keys are masked first, but no masking catches every secret.
-- The session log lives at `~/.socratic-mirror/log.md` and the extract cache at `~/.socratic-mirror/cache/extract.txt`, both readable only by you (mode 600). Delete `~/.socratic-mirror` to remove them.
+- The session log lives at `~/.socratic-mirror/log.md`, readable only by you (mode 600).
+- Each run writes the extracted utterances to a temporary file in `~/.socratic-mirror/cache/` and deletes it right after analysis. Leftovers older than an hour are removed on the next run.
+- Delete `~/.socratic-mirror` to remove everything.
 
 ## Safety
 

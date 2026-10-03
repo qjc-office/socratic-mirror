@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import tempfile
+import time
 from pathlib import Path
 from typing import TextIO
 
@@ -34,6 +35,22 @@ def write_atomic(path: Path, text: str) -> None:
         except OSError:
             pass
         raise
+
+
+def prune_stale(directory: Path, prefix: str = "extract-", max_age: float = 3600) -> int:
+    """Delete our own leftover files (prefix*.txt, older than max_age seconds)."""
+    removed = 0
+    if not directory.is_dir():
+        return 0
+    cutoff = time.time() - max_age
+    for path in directory.glob(prefix + "*.txt"):
+        try:
+            if not path.is_symlink() and path.is_file() and path.stat().st_mtime < cutoff:
+                path.unlink()
+                removed += 1
+        except OSError:
+            continue
+    return removed
 
 
 def write_unique(directory: Path, text: str, prefix: str = "extract-") -> Path:
