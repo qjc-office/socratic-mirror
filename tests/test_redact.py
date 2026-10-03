@@ -3,14 +3,20 @@ import pytest
 from redact import MASK, redact
 
 
-@pytest.mark.parametrize("secret", [
-    "sk-ant-api03-abcdefghijklmnopqrstuvwx",
-    "ghp_abcdefghijklmnopqrstuvwxyz0123",
-    "github_pat_11ABCDEFG0123456789_abcdefghij",
-    "xoxb-1234567890-abcdefghij",
-    "AKIAABCDEFGHIJKLMNOP",
-    "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abcdefghijklmnop",
-])
+# Fake secrets are assembled at runtime so that no secret-shaped literal
+# lives in the repository (secret scanners would flag the test file itself).
+FAKE = "abcdefghijklmnopqrstuvwxyz0123"
+SAMPLES = [
+    "sk" + "-ant-api03-" + FAKE,
+    "gh" + "p_" + FAKE,
+    "github" + "_pat_11" + FAKE,
+    "xo" + "xb-1234567890-" + FAKE[:10],
+    "AK" + "IA" + "ABCDEFGHIJKLMNOP",
+    "ey" + "JhbGciOiJIUzI1NiJ9." + "ey" + "JzdWIiOiIxMjM0NTY3ODkwIn0." + FAKE,
+]
+
+
+@pytest.mark.parametrize("secret", SAMPLES)
 def test_token_patterns_masked(secret):
     out = redact(f"키는 {secret} 입니다")
     assert secret not in out

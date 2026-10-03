@@ -42,7 +42,7 @@ def test_interrupt_marker_dropped():
 
 
 def test_long_paste_truncated_and_redacted():
-    paste = "로그:\n" + ("x" * 2000) + " token=sk-ant-api03-abcdefghijklmnopqrstuvwx"
+    paste = "로그:\n" + ("x" * 2000) + " token=" + "sk" + "-ant-api03-" + "abcdefghijklmnopqrstuvwx"
     line = clean_line(paste)
     assert len(line) <= MAX_UTTERANCE + 1
     assert line.endswith("…")
