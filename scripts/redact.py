@@ -30,7 +30,8 @@ _ANY_ASSIGN = re.compile(
     r"\b((?:[A-Za-z_][A-Za-z0-9_]*)?" + _SECRET_WORDS + r"[A-Za-z0-9_]*)(\s*=\s*)" + _VALUE,
     re.IGNORECASE,
 )
-# client_secret: ..., password: ...  A colon only counts for compound names or the
+# client_secret: ..., apiKey: ..., password: ...  A colon only counts for compound
+# (snake, kebab or camelCase) names or the
 # bare word password, so prose like "key: ..." or "Secret: ..." survives.
 _COLON_ASSIGN = re.compile(r"\b([A-Za-z][\w\-]*)(\s*:\s*)" + _VALUE)
 _SECRET_RE = re.compile(_SECRET_WORDS, re.IGNORECASE)
@@ -38,7 +39,8 @@ _SECRET_RE = re.compile(_SECRET_WORDS, re.IGNORECASE)
 
 def _mask_colon(m: "re.Match") -> str:
     name = m.group(1)
-    compound = ("_" in name or "-" in name) and _SECRET_RE.search(name)
+    camel = re.search(r"[a-z][A-Z]", name)
+    compound = ("_" in name or "-" in name or camel) and _SECRET_RE.search(name)
     if compound or name.lower() in ("password", "passwd"):
         return m.group(1) + m.group(2) + MASK
     return m.group(0)

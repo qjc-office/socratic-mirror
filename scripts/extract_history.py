@@ -11,11 +11,11 @@ import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, NamedTuple, Optional, Tuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from redact import redact  # noqa: E402
-from safe_io import open_private  # noqa: E402
+from safe_io import write_atomic  # noqa: E402
 
 MAX_UTTERANCE = 1000
 MAX_LINE = 2_000_000  # chars; longer jsonl lines are pastes or tool output, skipped unread
@@ -117,14 +117,12 @@ def same_path(a: str, b: str) -> bool:
 
 
 def first_cwd(path: Path) -> Optional[str]:
-    try:
-        with path.open(encoding="utf-8", errors="replace") as fh:
-            for line in bounded_lines(fh):
-                rec = parse_line(line) if line is not None else None
-                if rec and isinstance(rec.get("cwd"), str):
-                    return rec["cwd"]
-    except OSError:
-        return None
+    """First cwd recorded in a session file. Raises OSError if unreadable."""
+    with path.open(encoding="utf-8", errors="replace") as fh:
+        for line in bounded_lines(fh):
+            rec = parse_line(line) if line is not None else None
+            if rec and isinstance(rec.get("cwd"), str):
+                return rec["cwd"]
     return None
 
 
@@ -133,37 +131,54 @@ def _cwd_matches(cwd: Optional[str], root: str, matches) -> bool:
 
 
 def find_session_files(projects_dir: Path, root: Optional[str], cutoff: datetime,
-                       subtree: bool = True) -> List[Path]:
-    """root=None means all projects. subtree=False matches the exact folder only."""
+                       subtree: bool = True) -> Tuple[List[Path], int]:
+    """Return (session files in range, unreadable count).
+
+    root=None means all projects. subtree=False matches the exact folder only.
+    """
     if not projects_dir.is_dir():
-        return []
+        return [], 0
+    matches = is_within if subtree else same_path
     found: List[Path] = []
+    unreadable = 0
     for folder in sorted(p for p in projects_dir.iterdir() if p.is_dir()):
-        files = sorted(folder.glob("*.jsonl"), key=lambda f: f.stat().st_mtime, reverse=True)
-        recent = [f for f in files
-                  if datetime.fromtimestamp(f.stat().st_mtime, timezone.utc) >= cutoff]
-        if not recent:
-            continue
-        if root is not None:
-            matches = is_within if subtree else same_path
-            recent = [f for f in recent if _cwd_matches(first_cwd(f), root, matches)]
-        found.extend(recent)
-    return found
+        for path in sorted(folder.glob("*.jsonl")):
+            try:
+                if datetime.fromtimestamp(path.stat().st_mtime, timezone.utc) < cutoff:
+                    continue
+                if root is not None and not _cwd_matches(first_cwd(path), root, matches):
+                    continue
+            except OSError:
+                unreadable += 1
+                continue
+            found.append(path)
+    return found, unreadable
 
 
 ROW_OVERHEAD = 25  # "YYYY-MM-DD | 12345678 | " plus newline
 
 
-def collect(files: List[Path], cutoff: datetime, max_chars: int):
-    """Return (newest rows that fit max_chars, total utterances, sessions, malformed, oversized).
+class Collected(NamedTuple):
+    rows: list  # (timestamp, session, line), oldest first, newest that fit max_chars
+    total: int
+    sessions: int
+    malformed: int
+    oversized: int
+    unreadable: int
 
-    Keeps a bounded min-heap so memory stays near max_chars, not the whole history.
-    """
+
+def collect(files: List[Path], cutoff: datetime, max_chars: int) -> Collected:
+    """Keep a bounded min-heap so memory stays near max_chars, not the whole history."""
     heap: list = []
-    size = total = malformed = oversized = seq = 0
+    size = total = malformed = oversized = unreadable = seq = 0
     sessions = set()
     for path in files:
-        with path.open(encoding="utf-8", errors="replace") as fh:
+        try:
+            fh = path.open(encoding="utf-8", errors="replace")
+        except OSError:
+            unreadable += 1
+            continue
+        with fh:
             for line in bounded_lines(fh):
                 if line is None:
                     oversized += 1
@@ -188,7 +203,7 @@ def collect(files: List[Path], cutoff: datetime, max_chars: int):
                 while len(heap) > 1 and size - len(heap[0][3]) - ROW_OVERHEAD >= max_chars:
                     size -= len(heapq.heappop(heap)[3]) + ROW_OVERHEAD
     rows = [(ts, session, line) for ts, _, session, line in sorted(heap)]
-    return rows, total, len(sessions), malformed, oversized
+    return Collected(rows, total, len(sessions), malformed, oversized, unreadable)
 
 
 def render(rows, max_chars: int) -> Tuple[List[str], int]:
@@ -219,11 +234,6 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
-def write_private(path: Path, text: str) -> None:
-    with open_private(path, append=False) as fh:
-        fh.write(text)
-
-
 def main(argv: Optional[list] = None) -> int:
     parser = build_parser()
     try:
@@ -235,25 +245,26 @@ def main(argv: Optional[list] = None) -> int:
         return EXIT_USAGE
     cutoff = datetime.now(timezone.utc) - timedelta(days=args.days)
     root, is_git = (None, False) if args.all_projects else project_root(args.cwd)
-    files = find_session_files(Path(args.projects_dir).expanduser(), root, cutoff, subtree=is_git)
+    files, skipped = find_session_files(Path(args.projects_dir).expanduser(), root, cutoff,
+                                        subtree=is_git)
     if not files:
         print("no session history in range; try a larger --days or --all-projects",
               file=sys.stderr)
         return EXIT_NO_HISTORY
-    rows, total, sessions, malformed, oversized = collect(files, cutoff, args.max_chars)
-    if not total:
+    got = collect(files, cutoff, args.max_chars)
+    if not got.total:
         print("session files exist but no human utterances were extracted; "
               "the history format may have changed", file=sys.stderr)
         return EXIT_FORMAT_CHANGED
-    lines, _ = render(rows, args.max_chars)
-    omitted = total - len(lines)
-    header = (f"# socratic-mirror: {len(lines)} utterances, {sessions} sessions, "
+    lines, _ = render(got.rows, args.max_chars)
+    header = (f"# socratic-mirror: {len(lines)} utterances, {got.sessions} sessions, "
               f"scope={'all' if root is None else 'project'}, days={args.days}, "
-              f"omitted={omitted}, malformed={malformed}, oversized={oversized}")
+              f"omitted={got.total - len(lines)}, malformed={got.malformed}, "
+              f"oversized={got.oversized}, unreadable={skipped + got.unreadable}")
     body = "\n".join([header, *lines]) + "\n"
     if args.out:
         try:
-            write_private(Path(args.out).expanduser(), body)
+            write_atomic(Path(args.out).expanduser(), body)
         except OSError as exc:
             print(f"cannot write --out: {exc}", file=sys.stderr)
             return EXIT_USAGE

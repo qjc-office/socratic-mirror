@@ -65,3 +65,8 @@ def test_structured_and_spaced_assignments_masked():
 def test_prose_with_colon_still_untouched():
     for text in ("핵심 key: 고객이 먼저다", "토큰 token: 비용 얘기", "Secret: 그건 비밀이야"):
         assert redact(text) == text, text
+
+
+def test_camel_case_colon_keys_masked():
+    for text in ("apiKey: FAKE_VALUE_6", "clientSecret: FAKE_VALUE_7", "authToken: FAKE_VALUE_8"):
+        assert "FAKE_VALUE" not in redact(text), text
