@@ -1355,3 +1355,14 @@ Expected: 고지 한 줄 → 인용이 붙은 전제 → 질문 하나. 그다�
 - [ ] **Step 3: PR과 머지**: `feat/v0.1` 브랜치에서 PR을 만들고, sync-docs 후 머지한다. GitHub Actions는 v0.1에서 두지 않는다(조직 Actions 한도 정책). 테스트 증거는 로컬 `python3 -m pytest` 출력과 eval 결과를 PR 본문에 붙인다.
 
 - [ ] **Step 4: 태그**: 머지 후 `git tag v0.1.0 && git push origin v0.1.0`, `gh release create v0.1.0 --notes-file <릴리스 노트>`. 공개 설치 확인: 새 터미널에서 `/plugin marketplace add qjc-office/socratic-mirror` → `/plugin install socratic-mirror`.
+
+---
+
+## 실행 결과 (2026-10-04)
+
+- 실행 방식: executing-plans(인라인), 브랜치 `feat/v0.1`. Task 1~8 완료, Task 9는 아래 상태로 머지.
+- 계획과 달라진 점(교차 검토 13라운드 반영): `safe_io.py` 신설(원자적 쓰기·심볼릭 링크 거부·고유 추출 파일), `--out-dir`, 레코드별 `cwd` 범위 판정과 원문 바이트 사전 필터, git 밖은 정확 일치, 정규식 입력 창·시작 경계, 대용량 줄 건너뛰기, append_log의 `--project` 선택화(명령 주입 방지). 상세 판단은 설계 문서 2.1·3절.
+- README: 영어 기본 `README.md` + `README.ko.md` + `README.zh.md`, 타이틀 이미지 `assets/socrates-hero.jpg`(Codex 생성).
+- 검증 상태: pytest 83개 통과. Codex astra 교차 검토는 13라운드 동안 APPROVE를 받지 못했다(마지막 라운드 치명 0, 중요 2: 수정 시각 필터는 의도적 유지·문서화, 실제 플러그인 실행 증거 없음). `claude plugin eval` 7케이스와 실제 설치 확인은 세션 안에서 실행할 수 없어 미실행. 대표 지시로 이 상태에서 머지한다(UNVERIFIED).
+- eval: 대표가 새 터미널에서 1회 실행(`--runs 1`, $1.00, 411초) 결과 5/7 통과. 실패 2건(english: 질문 두 개를 and로 이음, no-history: 권한 프롬프트 불가 환경에서 Bash 차단)은 스킬 규칙과 커맨드 사전 허용으로 수정했으나 eval 재실행은 하지 않았다.
+

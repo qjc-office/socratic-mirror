@@ -11,3 +11,4 @@ __pycache__/
 # 실제 대화 기록은 절대 커밋하지 않는다
 *.jsonl
 !tests/fixtures/**/*.jsonl
+evals/results/

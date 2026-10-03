@@ -1,0 +1,10 @@
+{
+  "name": "socratic-mirror",
+  "version": "0.1.0",
+  "description": "Socratic self-interrogation for Claude Code: finds a premise you keep assuming in your own session history and questions it until you see it.",
+  "author": { "name": "Quantum Jump Club", "url": "https://github.com/qjc-office" },
+  "homepage": "https://github.com/qjc-office/socratic-mirror",
+  "repository": "https://github.com/qjc-office/socratic-mirror",
+  "license": "MIT",
+  "keywords": ["socratic", "reflection", "self-inquiry", "coaching", "korean"]
+}

@@ -49,24 +49,25 @@ socratic-mirror/
 │   └─ references/lenses.md        ← 엘렌코스·정명·십이연기 운용법과 질문 예시(한·영)
 ├─ agents/premise-miner.md         ← 추출본에서 반복 전제 후보와 인용 반환
 ├─ scripts/extract_history.py      ← jsonl에서 사람이 쓴 말만 추출
+├─ scripts/redact.py · append_log.py · safe_io.py  ← 마스킹 · 로그 기록 · 비공개 파일 쓰기
 ├─ tests/                          ← pytest + 가짜 jsonl 픽스처
 ├─ evals/                          ← claude plugin eval 케이스
-└─ README.md / README.en.md / LICENSE
+└─ README.md(영어, 기본) / README.ko.md / README.zh.md / LICENSE
 ```
 
 ### 2.1 extract_history.py
 
-- 입력 인자: `--days N`(기본 30), `--all-projects`(기본 끔, 끄면 현재 cwd에 해당하는 프로젝트 폴더만), `--max-chars`(기본 60000).
-- 프로젝트 폴더 찾기: cwd 절대경로의 `/`(Windows는 `\`와 `:`)를 `-`로 바꾼 이름. 일치 폴더가 없으면 0건으로 처리하고 안내한다.
+- 입력 인자: `--days N`(기본 30), `--all-projects`(기본 끔, 끄면 현재 프로젝트만), `--max-chars`(기본 60000). 테스트·고급 사용자용으로 `--projects-dir`(기본 `~/.claude/projects`, 환경변수 `SOCRATIC_MIRROR_PROJECTS_DIR`), `--cwd`, `--out`(권한 600 파일로 원자적 교체), `--out-dir`(실행마다 고유한 600 파일을 만들고 경로를 출력, 1시간 넘은 `extract-*.txt` 잔여분 정리), `--remove`(그 추출 파일 하나만 삭제, 다른 파일·링크는 거부)을 둔다. `/socrates` 커맨드는 이 플러그인의 두 스크립트 실행만 미리 허용한다(`rm` 등 일반 셸 허용 없음). 인자·쓰기 오류는 종료 코드 64.
+- 범위 판정: 폴더 이름 규칙은 CLI 버전마다 달라(실측) 쓰지 않는다. 기간 안(파일 수정 시각)의 세션 파일 중 대상 경로 문자열이 들어 있는 파일만 빠르게 고른 뒤(원문 바이트 검사), 기록 줄마다 그 줄의 `cwd`로 판정한다. git 저장소 안에서 실행하면 git 루트와 같거나 그 아래, 밖이면 실행 폴더와 정확히 같은 경로만 포함한다. `cwd`가 없는 줄은 제외한다. 세션 중간에 다른 폴더로 `cd`한 발화도 이 규칙으로 나뉜다. 심볼릭 링크인 폴더·파일은 읽지 않는다. 일치 파일이 없으면 종료 코드 2.
 - 남기는 줄: `type == "user"`이고, `isMeta`가 아니며, `isSidechain`이 아닌 것. `message.content`가 문자열이면 그대로, 리스트면 `type == "text"` 블록만 쓴다.
 - 버리는 내용: `tool_result` 블록, `<command-name>`·`<local-command-*>`·`<system-reminder>`·`<task-notification>` 등의 태그 블록, 빈 문자열.
-- 마스킹: `sk-…`, `ghp_…`, `xox[bp]-…`, `AKIA…`, `eyJ…`(JWT), `KEY=값` 형태의 값 부분을 `[REDACTED]`로 바꾼다.
-- 출력: 표준 출력으로 `YYYY-MM-DD | 세션ID 앞 8자 | 발화` 한 줄씩, 시간순으로 낸다. 상한을 넘으면 가장 최근 것부터 남기고, 첫 줄에 생략 건수를 적는다.
-- 오류 처리: 깨진 JSON 줄은 건너뛰고 건수만 집계한다. 대상 파일이 있는데 추출이 0건이면 표준 오류로 "기록 형식이 바뀌었을 수 있음" 경고를 내고 종료 코드 3을 돌려준다. Python이 없으면 커맨드가 설치 안내를 띄운다.
+- 마스킹(`redact.py`): 토큰 형태(`sk-…`, `ghp_…`, `github_pat_…`, `xox?-…`, `AKIA…`, JWT, `Bearer …`)와, 키 이름에 KEY·TOKEN·SECRET·PASSWORD가 든 대입·JSON/YAML 키의 값을 `[REDACTED]`로 바꾼다. 따옴표 값은 이스케이프를 따르고, 따옴표 없는 값은 줄 끝까지 가린다. 콜론 형식은 복합 이름(snake·kebab·camelCase)이나 password일 때만 가려 일반 문장(`key: …`)은 남긴다. 범위 밖(합의): 키 문맥 없는 맨 토큰, 여러 줄로 나뉜 값(YAML block scalar 등). 정규식 입력은 4,000자 창으로 제한하고 키 시작 경계를 둬 선형 시간을 유지한다.
+- 출력: 첫 줄 `# socratic-mirror: N utterances, S sessions, scope=…, days=…, omitted=…, malformed=…, oversized=…, unreadable=…`, 이후 `YYYY-MM-DD | 세션ID 앞 8자 | 발화`가 시간순. 메모리는 최신 발화만 담는 힙으로 상한 근처에 묶고, 상한보다 긴 한 줄도 잘라서 최소 1줄은 낸다. 200만 자 넘는 jsonl 줄은 통째로 올리지 않고 건너뛴다(`oversized`).
+- 오류 처리: 깨진 JSON 줄·형식이 다른 레코드는 건너뛰고 건수만 집계하며, 읽을 수 없는 파일은 그 파일만 건너뛴다(`unreadable`). 대상 파일이 있는데 추출이 0건이면 표준 오류로 "기록 형식이 바뀌었을 수 있음" 경고를 내고 종료 코드 3을 돌려준다. Python이 없으면 커맨드가 설치 안내를 띄운다.
 
 ### 2.2 premise-miner 에이전트
 
-- 도구: Read, Bash(스크립트 실행용). 쓰기 도구는 없다.
+- 도구: Read뿐이다. 추출은 스킬이 먼저 실행하고 파일 경로만 넘긴다. 쓰기 도구는 없다.
 - 입력: 스크립트 출력.
 - 출력 형식 (고정):
   ```
@@ -87,7 +88,7 @@ socratic-mirror/
 ### 3.1 `/socrates` (심문)
 
 1. 첫 실행이면 고지 한 줄: "이 도구는 위로 없이 질문만 합니다. 원치 않으면 언제든 `그만`이라고 입력하세요."
-2. 스크립트를 실행하고, premise-miner에 출력을 넘긴다.
+2. 스크립트를 `--out-dir`로 실행해 이번 실행 전용 추출 파일을 만들고, 그 경로만 premise-miner에 넘긴다. 에이전트 호출이 성공하든 실패하든 그 파일 하나를 바로 지운다. 요약 줄의 손실 숫자(`unreadable`·`oversized`·`malformed`)가 0이 아니면 사용자에게 한 줄로 알리고 계속한다.
 3. 후보 중 근거가 가장 강한 하나를 골라 이렇게 제시한다: "당신은 반복해서 X를 전제합니다" + 인용 1~2개.
 4. 그다음부터는 한 번에 질문 하나씩, 그 전제가 무너지는 반례 질문만 한다. 질문은 기록 속 사실에 묶는다.
 5. 멈춤 조건:
@@ -100,7 +101,7 @@ socratic-mirror/
 
 - 같은 세션의 심문 대화를 재료로 쓴다. 심문이 없으면 `/socrates`를 먼저 실행하라고 안내한다.
 - 출력: 세 줄(착각하고 있던 것, 진짜 답해야 했던 질문, 오늘 당장 바꿀 행동 하나)과 그 행동을 쪼갠 이번 주 액션 3개.
-- 로그 기록: `~/.socratic-mirror/log.md`에 날짜, 프로젝트, 무너진 전제, 세 줄, 액션 3개를 덧붙인다. 폴더가 없으면 만든다. 시크릿 마스킹을 한 번 더 적용한다.
+- 로그 기록: `~/.socratic-mirror/log.md`에 날짜, 프로젝트, 무너진 전제, 세 줄, 액션 3개를 덧붙인다. 프로젝트 이름은 스크립트가 현재 폴더에서 직접 읽고(명령줄에 폴더 이름을 끼우지 않는다, 주입 방지), 본문은 따옴표 친 heredoc으로 넘긴다. 폴더 700·파일 600, 심볼릭 링크는 거부, 한 항목 2만 자 상한. 시크릿 마스킹을 한 번 더 적용한다.
 
 ### 3.3 `/socrates triad` (세 틀 교차 검증)
 
@@ -128,7 +129,7 @@ socratic-mirror/
 - 상한: 초과 시 최근 우선, 생략 건수 표기
 - 견고성: 깨진 줄, 빈 파일, 대상 폴더 없음
 - 형식 변경 감지: 파일은 있는데 추출 0건이면 종료 코드 3
-- 경로 인코딩: macOS·Linux·Windows 경로 예시
+- 범위 판정: 폴더 이름과 무관하게 `cwd`로 판정, 하위 폴더 실행 시 git 루트 기준, git 밖은 정확히 같은 폴더만
 
 ### 5.2 행동 검증 (`claude plugin eval`)
 
@@ -148,7 +149,7 @@ eval은 깨끗한 환경에서 실행되므로 반드시 이 플러그인을 대
 
 - 저장소: `qjc-office/socratic-mirror` (public, 이름 충돌 없음을 2026-10-02 확인). 사내 규칙에 따라 `/project-launch`로 저장소 1개, 공유드라이브 폴더 1개, `os_projects` 행을 함께 만든다.
 - 설치 방법: `/plugin marketplace add qjc-office/socratic-mirror` 다음에 `/plugin install socratic-mirror`
-- README(한·영): 기능, 명령 예시, 로컬 처리와 개인정보 고지, 안전 고지, 원본 프롬프트 각색 표기, 알려진 한계.
+- README(영어 기본 `README.md`, 한국어 `README.ko.md`, 중국어 간체 `README.zh.md`): 기능, 명령 예시, 로컬 처리와 개인정보 고지, 안전 고지, 원본 프롬프트 각색 표기, 알려진 한계.
 - 공개 전 점검: 저장소 안에 실제 대화 기록, 고객명, 내부 경로가 없는지 grep으로 확인한다.
 
 ## 7. 알려진 한계와 대응

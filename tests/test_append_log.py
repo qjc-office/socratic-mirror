@@ -1,0 +1,61 @@
+from __future__ import annotations
+import io
+import os
+import stat
+
+import append_log
+
+
+def test_appends_with_heading_and_redaction(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("SOCRATIC_MIRROR_HOME", str(tmp_path / "home"))
+    entry = "- 무너진 전제: 혼자 해야 빠르다\n- 메모 API_KEY=abc123"
+    assert append_log.main(["--project", "demo"], io.StringIO(entry)) == 0
+    log = tmp_path / "home" / "log.md"
+    text = log.read_text(encoding="utf-8")
+    assert "· demo" in text and "혼자 해야 빠르다" in text and "abc123" not in text
+    assert stat.S_IMODE(os.stat(log).st_mode) == 0o600
+    assert stat.S_IMODE(os.stat(log.parent).st_mode) == 0o700
+    assert str(log) in capsys.readouterr().out
+
+
+def test_second_entry_appends(tmp_path, monkeypatch):
+    monkeypatch.setenv("SOCRATIC_MIRROR_HOME", str(tmp_path))
+    append_log.main(["--project", "a"], io.StringIO("첫째"))
+    append_log.main(["--project", "b"], io.StringIO("둘째"))
+    text = (tmp_path / "log.md").read_text(encoding="utf-8")
+    assert text.index("첫째") < text.index("둘째")
+    assert text.count("\n## ") == 2
+
+
+def test_empty_stdin_rejected(tmp_path, monkeypatch):
+    monkeypatch.setenv("SOCRATIC_MIRROR_HOME", str(tmp_path))
+    assert append_log.main(["--project", "a"], io.StringIO("   \n")) == 1
+    assert not (tmp_path / "log.md").exists()
+
+
+def test_project_defaults_to_cwd_name_without_shell(tmp_path, monkeypatch):
+    monkeypatch.setenv("SOCRATIC_MIRROR_HOME", str(tmp_path / "home"))
+    weird = tmp_path / 'x$(touch pwned)"; echo "'
+    weird.mkdir()
+    monkeypatch.chdir(weird)
+    assert append_log.main([], io.StringIO("항목")) == 0
+    text = (tmp_path / "home" / "log.md").read_text(encoding="utf-8")
+    assert '· x$(touch pwned)"; echo "' in text
+    assert not (weird / "pwned").exists()
+
+
+def test_symlinked_log_refused(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    home.mkdir()
+    victim = tmp_path / "victim.txt"
+    victim.write_text("원본", encoding="utf-8")
+    (home / "log.md").symlink_to(victim)
+    monkeypatch.setenv("SOCRATIC_MIRROR_HOME", str(home))
+    assert append_log.main(["--project", "a"], io.StringIO("새면 안 되는 말")) == 1
+    assert victim.read_text(encoding="utf-8") == "원본"
+
+
+def test_oversized_entry_rejected(tmp_path, monkeypatch):
+    monkeypatch.setenv("SOCRATIC_MIRROR_HOME", str(tmp_path))
+    assert append_log.main(["--project", "a"], io.StringIO("가" * (append_log.MAX_ENTRY + 1))) == 1
+    assert not (tmp_path / "log.md").exists()
