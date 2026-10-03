@@ -1,0 +1,15 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "socratic-mirror",
+  "description": "Socratic self-interrogation plugin for Claude Code",
+  "owner": { "name": "Quantum Jump Club", "url": "https://github.com/qjc-office" },
+  "plugins": [
+    {
+      "name": "socratic-mirror",
+      "source": "./",
+      "description": "Finds a premise you keep assuming in your Claude Code history and questions it, Socratic style.",
+      "version": "0.1.0",
+      "category": "productivity"
+    }
+  ]
+}
