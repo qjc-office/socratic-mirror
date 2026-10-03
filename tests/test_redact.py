@@ -53,3 +53,15 @@ def test_bearer_header_masked():
     bearer = "Bear" + "er " + "abcdefghijklmnopqrstuvwxyz012345"
     out = redact("Authorization: " + bearer)
     assert "abcdefghijklmnopqrstuvwxyz012345" not in out
+
+
+def test_structured_and_spaced_assignments_masked():
+    samples = ['{"API_KEY":"FAKE_VALUE_1"}', "{'password': 'FAKE_VALUE_2'}",
+               "api_key = FAKE_VALUE_3", "client_secret: FAKE_VALUE_4", "password: FAKE_VALUE_5"]
+    for text in samples:
+        assert "FAKE_VALUE" not in redact(text), text
+
+
+def test_prose_with_colon_still_untouched():
+    for text in ("핵심 key: 고객이 먼저다", "토큰 token: 비용 얘기", "Secret: 그건 비밀이야"):
+        assert redact(text) == text, text

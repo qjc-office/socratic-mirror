@@ -156,3 +156,30 @@ def test_tiny_budget_still_returns_newest_line(projects, capsys):
     assert run(projects, "--max-chars", "200") == eh.EXIT_OK
     lines = capsys.readouterr().out.splitlines()
     assert len(lines) == 2 and len(lines[1]) <= 200 and lines[1].endswith("…")
+
+
+def test_cwd_found_beyond_first_200_lines(projects, capsys):
+    filler = ['{"type":"file-history-snapshot","snapshot":{}}'] * 300
+    write_session(projects / "late", "a", filler + [user("늦게 나온 cwd")])
+    assert run(projects) == eh.EXIT_OK
+    assert "늦게 나온 cwd" in capsys.readouterr().out
+
+
+def test_existing_cache_dir_permissions_tightened(projects, tmp_path):
+    write_session(projects / "-proj", "a", [user("권한")])
+    cache = tmp_path / "cache"
+    cache.mkdir(mode=0o755)
+    os.chmod(cache, 0o755)
+    assert run(projects, "--out", str(cache / "extract.txt")) == eh.EXIT_OK
+    assert stat.S_IMODE(os.stat(cache).st_mode) == 0o700
+
+
+def test_collect_keeps_only_bounded_newest(projects):
+    recs = [user(f"발화{i:03d}", ts=f"2026-09-{1 + i % 28:02d}T{i % 24:02d}:00:00.000Z") for i in range(300)]
+    path = write_session(projects / "-proj", "a", recs)
+    cutoff = eh.datetime(2000, 1, 1, tzinfo=eh.timezone.utc)
+    kept, total, sessions, malformed = eh.collect([path], cutoff, max_chars=500)
+    assert total == 300 and sessions == 1 and malformed == 0
+    assert sum(len(r[2]) for r in kept) <= 500 + eh.MAX_UTTERANCE + 40
+    assert len(kept) < 300
+    assert kept == sorted(kept, key=lambda r: r[0])

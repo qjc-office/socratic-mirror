@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import heapq
 import json
 import os
 import re
@@ -96,12 +97,10 @@ def same_path(a: str, b: str) -> bool:
     return os.path.normcase(os.path.realpath(a)) == os.path.normcase(os.path.realpath(b))
 
 
-def first_cwd(path: Path, max_lines: int = 200) -> Optional[str]:
+def first_cwd(path: Path) -> Optional[str]:
     try:
         with path.open(encoding="utf-8", errors="replace") as fh:
-            for i, line in enumerate(fh):
-                if i >= max_lines:
-                    break
+            for line in fh:
                 rec = parse_line(line)
                 if rec and isinstance(rec.get("cwd"), str):
                     return rec["cwd"]
@@ -133,9 +132,17 @@ def find_session_files(projects_dir: Path, root: Optional[str], cutoff: datetime
     return found
 
 
-def collect(files: List[Path], cutoff: datetime) -> Tuple[List[Tuple[datetime, str, str]], int]:
-    rows: List[Tuple[datetime, str, str]] = []
-    malformed = 0
+ROW_OVERHEAD = 25  # "YYYY-MM-DD | 12345678 | " plus newline
+
+
+def collect(files: List[Path], cutoff: datetime, max_chars: int):
+    """Return (newest rows that fit max_chars, total utterances, sessions, malformed).
+
+    Keeps a bounded min-heap so memory stays near max_chars, not the whole history.
+    """
+    heap: list = []
+    size = total = malformed = seq = 0
+    sessions = set()
     for path in files:
         with path.open(encoding="utf-8", errors="replace") as fh:
             for line in fh:
@@ -150,9 +157,16 @@ def collect(files: List[Path], cutoff: datetime) -> Tuple[List[Tuple[datetime, s
                 if text is None or ts is None or ts < cutoff:
                     continue
                 session = str(rec.get("sessionId") or path.stem)
-                rows.append((ts, session, clean_line(text)))
-    rows.sort(key=lambda r: r[0])
-    return rows, malformed
+                line = clean_line(text)
+                total += 1
+                sessions.add(session)
+                heapq.heappush(heap, (ts, seq, session, line))
+                seq += 1
+                size += len(line) + ROW_OVERHEAD
+                while len(heap) > 1 and size - len(heap[0][3]) - ROW_OVERHEAD >= max_chars:
+                    size -= len(heapq.heappop(heap)[3]) + ROW_OVERHEAD
+    rows = [(ts, session, line) for ts, _, session, line in sorted(heap)]
+    return rows, total, len(sessions), malformed
 
 
 def render(rows, max_chars: int) -> Tuple[List[str], int]:
@@ -185,6 +199,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 def write_private(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if path.parent.is_symlink() or not path.parent.is_dir():
+        raise OSError(f"refusing to write into {path.parent}: not a real directory")
+    os.chmod(path.parent, 0o700)
     fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as fh:
         fh.write(text)
@@ -207,19 +224,23 @@ def main(argv: Optional[list] = None) -> int:
         print("no session history in range; try a larger --days or --all-projects",
               file=sys.stderr)
         return EXIT_NO_HISTORY
-    rows, malformed = collect(files, cutoff)
-    if not rows:
+    rows, total, sessions, malformed = collect(files, cutoff, args.max_chars)
+    if not total:
         print("session files exist but no human utterances were extracted; "
               "the history format may have changed", file=sys.stderr)
         return EXIT_FORMAT_CHANGED
-    lines, omitted = render(rows, args.max_chars)
-    sessions = len({r[1] for r in rows})
+    lines, _ = render(rows, args.max_chars)
+    omitted = total - len(lines)
     header = (f"# socratic-mirror: {len(lines)} utterances, {sessions} sessions, "
               f"scope={'all' if root is None else 'project'}, days={args.days}, "
               f"omitted={omitted}, malformed={malformed}")
     body = "\n".join([header, *lines]) + "\n"
     if args.out:
-        write_private(Path(args.out).expanduser(), body)
+        try:
+            write_private(Path(args.out).expanduser(), body)
+        except OSError as exc:
+            print(f"cannot write --out: {exc}", file=sys.stderr)
+            return EXIT_USAGE
     else:
         sys.stdout.write(body)
     return EXIT_OK
