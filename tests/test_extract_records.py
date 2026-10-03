@@ -67,3 +67,10 @@ def test_odd_message_shapes_do_not_crash():
 
 def test_value_on_next_line_masked_before_flattening():
     assert "synthetic-private-value" not in clean_line("API_KEY=\nsynthetic-private-value")
+
+
+def test_pathological_long_line_is_fast():
+    import time
+    started = time.monotonic()
+    clean_line("a-" * 1_000_000)
+    assert time.monotonic() - started < 1.0

@@ -27,7 +27,9 @@ def test_token_patterns_masked(secret):
 def test_uppercase_assignment_value_masked():
     out = redact('OPENAI_API_KEY=abc123def DB_PASSWORD: "hunter2"')
     assert "abc123def" not in out and "hunter2" not in out
-    assert "OPENAI_API_KEY=" in out and "DB_PASSWORD" in out
+    assert out.startswith("OPENAI_API_KEY=")
+    second = redact('DB_PASSWORD: "hunter2"')
+    assert second.startswith("DB_PASSWORD") and "hunter2" not in second
 
 
 def test_lowercase_assignment_with_equals_masked():
@@ -85,3 +87,8 @@ def test_nested_colon_keys_masked():
 
 def test_yaml_doubled_single_quote_masked():
     assert "secret-suffix" not in redact("password: 'prefix''secret-suffix'")
+
+
+def test_unquoted_value_with_spaces_masked_to_line_end():
+    out = redact("password: correct horse battery staple\n다음 줄은 그대로")
+    assert "horse" not in out and "staple" not in out and "다음 줄은 그대로" in out

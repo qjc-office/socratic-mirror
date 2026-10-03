@@ -14,6 +14,9 @@ from redact import redact  # noqa: E402
 from safe_io import open_private  # noqa: E402
 
 
+MAX_ENTRY = 20_000  # chars; one session summary is a few hundred
+
+
 def log_path() -> Path:
     home = os.environ.get("SOCRATIC_MIRROR_HOME") or str(Path.home() / ".socratic-mirror")
     return Path(home).expanduser() / "log.md"
@@ -27,6 +30,9 @@ def main(argv: Optional[list] = None, stdin: Optional[TextIO] = None) -> int:
     entry = (stdin or sys.stdin).read().strip()
     if not entry:
         print("empty entry; nothing written", file=sys.stderr)
+        return 1
+    if len(entry) > MAX_ENTRY:
+        print(f"entry longer than {MAX_ENTRY} chars; nothing written", file=sys.stderr)
         return 1
     path = log_path()
     project = args.project or Path.cwd().name

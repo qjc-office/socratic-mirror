@@ -15,10 +15,12 @@ _TOKEN_PATTERNS = [
     re.compile(r"\bbearer\s+[A-Za-z0-9._~+/\-]{16,}=*", re.IGNORECASE),
 ]
 _SECRET_WORDS = r"(?:KEY|TOKEN|SECRET|PASSWORD|PASSWD)"
-_VALUE = r"(\"(?:[^\"\\]|\\.)*\"|'(?:[^'\\]|\\.|'')*'|[^\s,;}\]]+)"
+# Quoted values honour escapes; unquoted values run to the end of the line, since a
+# password can contain spaces. Over-masking the rest of a line is the safe failure.
+_VALUE = r"(\"(?:[^\"\\]|\\.)*\"|'(?:[^'\\]|\\.|'')*'|[^\n}\]]*[^\s}\]])"
 # OPENAI_API_KEY=..., DB_PASSWORD: "..."  (all-caps names, = or :)
 _UPPER_ASSIGN = re.compile(
-    r"\b((?:[A-Z][A-Z0-9_]*)?" + _SECRET_WORDS + r"[A-Z0-9_]*)(\s*[=:]\s*)" + _VALUE
+    r"(?<![A-Za-z0-9_])((?:[A-Z][A-Z0-9_]*)?" + _SECRET_WORDS + r"[A-Z0-9_]*)(\s*[=:]\s*)" + _VALUE
 )
 # {"api_key": "..."}, {'password': '...'}  (quoted keys as in JSON, YAML, dicts)
 _QUOTED_KEY = re.compile(
@@ -27,14 +29,14 @@ _QUOTED_KEY = re.compile(
 )
 # api_key = ..., authToken=...  (any case, = only)
 _ANY_ASSIGN = re.compile(
-    r"\b((?:[A-Za-z_][A-Za-z0-9_]*)?" + _SECRET_WORDS + r"[A-Za-z0-9_]*)(\s*=\s*)" + _VALUE,
+    r"(?<![A-Za-z0-9_])((?:[A-Za-z_][A-Za-z0-9_]*)?" + _SECRET_WORDS + r"[A-Za-z0-9_]*)(\s*=\s*)" + _VALUE,
     re.IGNORECASE,
 )
 # client_secret: ..., apiKey: ..., password: ...  A colon only counts for compound
 # (snake, kebab or camelCase) names or the bare word password, so prose like
 # "key: ..." or "Secret: ..." survives. Only key + separator is consumed while
 # scanning, so a parent key ("config: {apiKey: v}") never swallows a nested one.
-_COLON_KEY = re.compile(r"\b([A-Za-z][\w\-]*)(\s*:\s*)")
+_COLON_KEY = re.compile(r"(?<![\w\-])([A-Za-z][\w\-]*)(\s*:\s*)")
 _VALUE_RE = re.compile(_VALUE)
 _SECRET_RE = re.compile(_SECRET_WORDS, re.IGNORECASE)
 

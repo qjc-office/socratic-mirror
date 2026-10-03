@@ -53,3 +53,9 @@ def test_symlinked_log_refused(tmp_path, monkeypatch):
     monkeypatch.setenv("SOCRATIC_MIRROR_HOME", str(home))
     assert append_log.main(["--project", "a"], io.StringIO("새면 안 되는 말")) == 1
     assert victim.read_text(encoding="utf-8") == "원본"
+
+
+def test_oversized_entry_rejected(tmp_path, monkeypatch):
+    monkeypatch.setenv("SOCRATIC_MIRROR_HOME", str(tmp_path))
+    assert append_log.main(["--project", "a"], io.StringIO("가" * (append_log.MAX_ENTRY + 1))) == 1
+    assert not (tmp_path / "log.md").exists()

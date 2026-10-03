@@ -18,6 +18,7 @@ from redact import redact  # noqa: E402
 from safe_io import write_atomic, write_unique  # noqa: E402
 
 MAX_UTTERANCE = 1000
+REDACT_WINDOW = MAX_UTTERANCE * 4  # regexes only ever see a bounded slice
 MAX_LINE = 2_000_000  # chars; longer jsonl lines are pastes or tool output, skipped unread
 _TAGS = ("system-reminder", "task-notification", "command-name", "command-message",
          "command-args", "local-command-stdout", "local-command-stderr",
@@ -77,7 +78,8 @@ def extract_text(record: dict) -> Optional[str]:
 
 def clean_line(text: str) -> str:
     # Redact the raw text first: a value on the line after "KEY=" must not escape.
-    flat = " ⏎ ".join(part.strip() for part in redact(text).splitlines() if part.strip())
+    flat = " ⏎ ".join(part.strip() for part in redact(text[:REDACT_WINDOW]).splitlines()
+                      if part.strip())
     if len(flat) > MAX_UTTERANCE:
         flat = flat[:MAX_UTTERANCE] + "…"
     return flat
