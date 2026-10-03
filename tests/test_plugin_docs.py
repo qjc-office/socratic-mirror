@@ -71,3 +71,17 @@ def test_eval_cases_are_well_formed():
                 assert fm.get("tool"), grader
             if fm["type"] == "regex":
                 assert fm.get("pattern") and "(?" not in fm["pattern"], grader
+
+
+def test_readmes_cover_install_privacy_safety_attribution():
+    for name, musts in {
+        "README.md": ("/plugin marketplace add qjc-office/socratic-mirror", "/plugin install socratic-mirror",
+                      "로컬", "모델 제공자", "109", "SNS에서 공유된 프롬프트를 각색", "~/.socratic-mirror/log.md"),
+        "README.en.md": ("/plugin marketplace add qjc-office/socratic-mirror", "/plugin install socratic-mirror",
+                         "locally", "model provider", "crisis", "adapted from prompts shared on social media",
+                         "~/.socratic-mirror/log.md"),
+    }.items():
+        body = (ROOT / name).read_text(encoding="utf-8")
+        for must in musts:
+            assert must in body, (name, must)
+        assert "하버드" not in body and "Harvard" not in body
