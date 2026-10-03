@@ -117,29 +117,35 @@ def same_path(a: str, b: str) -> bool:
     return os.path.normcase(os.path.realpath(a)) == os.path.normcase(os.path.realpath(b))
 
 
-def first_cwd(path: Path) -> Optional[str]:
-    """First cwd recorded in a session file. Raises OSError if unreadable."""
-    with path.open(encoding="utf-8", errors="replace") as fh:
-        for line in bounded_lines(fh):
-            rec = parse_line(line) if line is not None else None
-            if rec and isinstance(rec.get("cwd"), str):
-                return rec["cwd"]
-    return None
+def file_mentions(path: Path, needle: bytes, chunk: int = 1 << 20) -> bool:
+    """Cheap pre-filter: does the raw file contain needle? Reads in bounded chunks.
 
-
-def _cwd_matches(cwd: Optional[str], root: str, matches) -> bool:
-    return cwd is not None and matches(cwd, root)
+    Raises OSError if unreadable. Exact scope is decided per record in collect().
+    """
+    tail = b""
+    with path.open("rb") as fh:
+        while True:
+            block = fh.read(chunk)
+            if not block:
+                return False
+            if needle in tail + block:
+                return True
+            tail = block[-(len(needle) - 1):] if len(needle) > 1 else b""
 
 
 def find_session_files(projects_dir: Path, root: Optional[str], cutoff: datetime,
-                       subtree: bool = True) -> Tuple[List[Path], int]:
+                       exact: bool = False) -> Tuple[List[Path], int]:
     """Return (session files in range, unreadable count).
 
-    root=None means all projects. subtree=False matches the exact folder only.
+    root=None means all projects. Files are pre-filtered by a raw substring check;
+    subtree/exact matching happens per record in collect().
     """
     if not projects_dir.is_dir():
         return [], 0
-    matches = is_within if subtree else same_path
+    # The quoted root path appears in any session that ever ran inside it.
+    # exact=True keeps the closing quote so "/home" does not match "/home/other".
+    quoted = json.dumps(root, ensure_ascii=False) if root is not None else ""
+    needle = (quoted if exact else quoted[:-1]).encode("utf-8")
     found: List[Path] = []
     unreadable = 0
     for folder in sorted(p for p in projects_dir.iterdir() if p.is_dir()):
@@ -147,7 +153,7 @@ def find_session_files(projects_dir: Path, root: Optional[str], cutoff: datetime
             try:
                 if datetime.fromtimestamp(path.stat().st_mtime, timezone.utc) < cutoff:
                     continue
-                if root is not None and not _cwd_matches(first_cwd(path), root, matches):
+                if root is not None and not file_mentions(path, needle):
                     continue
             except OSError:
                 unreadable += 1
@@ -255,7 +261,7 @@ def main(argv: Optional[list] = None) -> int:
     cutoff = datetime.now(timezone.utc) - timedelta(days=args.days)
     root, is_git = (None, False) if args.all_projects else project_root(args.cwd)
     files, skipped = find_session_files(Path(args.projects_dir).expanduser(), root, cutoff,
-                                        subtree=is_git)
+                                        exact=not is_git)
     if not files:
         print("no session history in range; try a larger --days or --all-projects",
               file=sys.stderr)

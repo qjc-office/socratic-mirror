@@ -238,3 +238,26 @@ def test_records_after_cd_elsewhere_excluded(projects, capsys):
     assert run(projects) == eh.EXIT_OK
     out = capsys.readouterr().out
     assert "프로젝트 안 발화" in out and "다른 곳으로 옮긴 뒤 발화" not in out
+
+
+def test_session_that_cds_into_project_later_is_included(projects, capsys):
+    write_session(projects / "-home", "a", [user("홈에서 시작", cwd="/elsewhere"),
+                                            user("프로젝트로 옮긴 뒤 발화", cwd="/proj")])
+    assert run(projects) == eh.EXIT_OK
+    out = capsys.readouterr().out
+    assert "프로젝트로 옮긴 뒤 발화" in out and "홈에서 시작" not in out
+
+
+def test_file_mentions_spans_chunk_boundary(tmp_path):
+    path = tmp_path / "x.jsonl"
+    path.write_bytes(b"a" * 10 + b'"/proj' + b"b" * 10)
+    assert eh.file_mentions(path, b'"/proj', chunk=8)
+    assert not eh.file_mentions(path, b'"/nope', chunk=8)
+
+
+def test_non_ascii_project_path(tmp_path, projects, capsys):
+    proj = tmp_path / "나의_회사"
+    proj.mkdir()
+    write_session(projects / "k", "a", [user("한글 경로 발화", cwd=str(proj))])
+    assert run(projects, cwd=str(proj)) == eh.EXIT_OK
+    assert "한글 경로 발화" in capsys.readouterr().out
