@@ -1,5 +1,9 @@
 # socratic-mirror
 
+<p align="center"><img src="assets/socrates-hero.jpg" alt="Socrates in sunglasses saying &quot;Know thyself.&quot;" width="100%"></p>
+
+> Socratic self-interrogation over your Claude Code history
+
 [한국어](README.md)
 
 A Claude Code plugin that finds one premise you keep assuming, without evidence, across your past conversations with Claude, and questions it. No advice, no comfort. When you admit the premise is wrong, it says `Aporia.` and stops.

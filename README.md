@@ -1,5 +1,9 @@
 # socratic-mirror
 
+<p align="center"><img src="assets/socrates-hero.jpg" alt="소크라테스가 선글라스를 끼고 &quot;Know thyself.&quot;라고 말하는 그림" width="100%"></p>
+
+> Claude Code 대화 기록으로 하는 소크라테스식 자기 심문
+
 [English](README.en.md)
 
 Claude Code와 나눈 지난 대화에서 내가 반복해서 근거 없이 깔고 있는 전제를 하나 찾아, 답 없이 질문만으로 되묻는 플러그인이에요. 조언도 위로도 하지 않아요. 내가 "그 전제가 틀렸다"고 인정하면 `아포리아.` 한 마디를 남기고 멈춥니다.
