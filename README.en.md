@@ -59,6 +59,7 @@ The interrogation prompts were adapted from prompts shared on social media.
 
 - Claude Code's history format is not a public spec and may change. If history exists but nothing can be extracted, the plugin says so and stops (exit code 3). Please open an issue.
 - Logs or code you pasted are counted as your own words. The analysis step filters them, imperfectly.
+- For speed, `--days` first filters session files by modification time. A session file restored from backup with an old timestamp may be skipped.
 
 ## Development
 
