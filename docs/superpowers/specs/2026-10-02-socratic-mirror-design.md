@@ -56,8 +56,8 @@ socratic-mirror/
 
 ### 2.1 extract_history.py
 
-- 입력 인자: `--days N`(기본 30), `--all-projects`(기본 끔, 끄면 현재 cwd에 해당하는 프로젝트 폴더만), `--max-chars`(기본 60000).
-- 프로젝트 폴더 찾기: cwd 절대경로의 `/`(Windows는 `\`와 `:`)를 `-`로 바꾼 이름. 일치 폴더가 없으면 0건으로 처리하고 안내한다.
+- 입력 인자: `--days N`(기본 30), `--all-projects`(기본 끔, 끄면 현재 프로젝트만), `--max-chars`(기본 60000). 테스트·고급 사용자용으로 `--projects-dir`(기본 `~/.claude/projects`, 환경변수 `SOCRATIC_MIRROR_PROJECTS_DIR`), `--cwd`, `--out`(권한 600 파일로 쓰기)을 둔다. 인자 오류는 종료 코드 64.
+- 프로젝트 폴더 찾기: 폴더 이름 규칙은 CLI 버전마다 달라(실측) 쓰지 않는다. 각 폴더의 최신 세션 파일에서 첫 `cwd` 값을 읽어 판정한다. git 저장소 안에서 실행하면 git 루트와 같거나 그 아래인 폴더를, git 저장소가 아니면 실행 폴더와 정확히 같은 폴더만 포함한다(홈 폴더에서 실행했을 때 홈 아래 모든 프로젝트가 섞이는 것을 막는다). 일치 폴더가 없으면 종료 코드 2.
 - 남기는 줄: `type == "user"`이고, `isMeta`가 아니며, `isSidechain`이 아닌 것. `message.content`가 문자열이면 그대로, 리스트면 `type == "text"` 블록만 쓴다.
 - 버리는 내용: `tool_result` 블록, `<command-name>`·`<local-command-*>`·`<system-reminder>`·`<task-notification>` 등의 태그 블록, 빈 문자열.
 - 마스킹: `sk-…`, `ghp_…`, `xox[bp]-…`, `AKIA…`, `eyJ…`(JWT), `KEY=값` 형태의 값 부분을 `[REDACTED]`로 바꾼다.
@@ -128,7 +128,7 @@ socratic-mirror/
 - 상한: 초과 시 최근 우선, 생략 건수 표기
 - 견고성: 깨진 줄, 빈 파일, 대상 폴더 없음
 - 형식 변경 감지: 파일은 있는데 추출 0건이면 종료 코드 3
-- 경로 인코딩: macOS·Linux·Windows 경로 예시
+- 범위 판정: 폴더 이름과 무관하게 `cwd`로 판정, 하위 폴더 실행 시 git 루트 기준, git 밖은 정확히 같은 폴더만
 
 ### 5.2 행동 검증 (`claude plugin eval`)
 

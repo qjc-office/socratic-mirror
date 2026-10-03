@@ -1,0 +1,141 @@
+from __future__ import annotations
+import os
+import stat
+import subprocess
+import sys
+import re
+import time
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+import pytest
+from conftest import SCRIPTS, user, write_session
+import extract_history as eh
+
+RECENT = "2026-10-01T03:00:00.000Z"
+
+
+@pytest.fixture
+def projects(tmp_path):
+    return tmp_path / "projects"
+
+
+def run(projects, *args, cwd="/proj"):
+    return eh.main(["--projects-dir", str(projects), "--cwd", cwd, "--days", "36500", *args])
+
+
+def test_basic_output_format(projects, capsys):
+    write_session(projects / "-proj", "a", [user("나는 혼자 해야 빨라", ts=RECENT)])
+    assert run(projects) == eh.EXIT_OK
+    out = capsys.readouterr().out.splitlines()
+    assert out[0].startswith("# socratic-mirror: 1 utterances, 1 sessions, scope=project")
+    assert out[1].endswith("| s-0001-a | 나는 혼자 해야 빨라")
+
+
+def test_matches_dir_by_cwd_not_name(projects, capsys):
+    write_session(projects / "weird-legacy-name", "a", [user("내 프로젝트 발화", cwd="/proj")])
+    write_session(projects / "-proj", "b", [user("다른 곳 발화", cwd="/elsewhere")])
+    assert run(projects) == eh.EXIT_OK
+    out = capsys.readouterr().out
+    assert "내 프로젝트 발화" in out and "다른 곳 발화" not in out
+
+
+def test_all_projects_includes_everything(projects, capsys):
+    write_session(projects / "x", "a", [user("하나", cwd="/proj")])
+    write_session(projects / "y", "b", [user("둘", cwd="/elsewhere", session="s-0002-bbbb")])
+    assert run(projects, "--all-projects") == eh.EXIT_OK
+    out = capsys.readouterr().out
+    assert "하나" in out and "둘" in out and "scope=all" in out
+
+
+def test_scope_uses_git_root_from_subdir(tmp_path, projects, capsys):
+    repo = tmp_path / "repo"
+    (repo / "sub").mkdir(parents=True)
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    write_session(projects / "r", "a", [user("루트에서 한 말", cwd=str(repo))])
+    assert run(projects, cwd=str(repo / "sub")) == eh.EXIT_OK
+    assert "루트에서 한 말" in capsys.readouterr().out
+
+
+def test_days_filter_by_record_timestamp(projects, capsys):
+    now = datetime.now(timezone.utc)
+    old = (now - timedelta(days=400)).isoformat().replace("+00:00", "Z")
+    new = (now - timedelta(days=1)).isoformat().replace("+00:00", "Z")
+    write_session(projects / "-proj", "a", [user("옛날 말", ts=old), user("최근 말", ts=new)])
+    code = eh.main(["--projects-dir", str(projects), "--cwd", "/proj", "--days", "30"])
+    assert code == eh.EXIT_OK
+    out = capsys.readouterr().out
+    assert "최근 말" in out and "옛날 말" not in out
+
+
+def test_max_chars_keeps_newest(projects, capsys):
+    recs = [user(f"발화{i:02d} " + "가" * 50, ts=f"2026-09-{i + 1:02d}T00:00:00.000Z") for i in range(20)]
+    write_session(projects / "-proj", "a", recs)
+    assert run(projects, "--max-chars", "400") == eh.EXIT_OK
+    out = capsys.readouterr().out
+    assert "발화19" in out and "발화00" not in out
+    assert re.search(r"omitted=[1-9]\d*", out.splitlines()[0])
+
+
+def test_no_history_exit_2(projects, capsys):
+    assert run(projects) == eh.EXIT_NO_HISTORY
+    assert "no session history" in capsys.readouterr().err
+
+
+def test_format_changed_exit_3(projects, capsys):
+    write_session(projects / "-proj", "a", [{"type": "user", "cwd": "/proj", "weird": True}])
+    assert run(projects) == eh.EXIT_FORMAT_CHANGED
+    assert "format" in capsys.readouterr().err
+
+
+def test_malformed_lines_skipped(projects, capsys):
+    write_session(projects / "-proj", "a", ["{broken", user("살아남은 말"), "\xff\xfe junk"])
+    assert run(projects) == eh.EXIT_OK
+    out = capsys.readouterr().out
+    assert "살아남은 말" in out and "malformed=2" in out
+
+
+def test_out_file_is_private(projects, tmp_path):
+    write_session(projects / "-proj", "a", [user("비공개 확인")])
+    target = tmp_path / "cache" / "extract.txt"
+    assert run(projects, "--out", str(target)) == eh.EXIT_OK
+    assert "비공개 확인" in target.read_text(encoding="utf-8")
+    assert stat.S_IMODE(os.stat(target).st_mode) == 0o600
+
+
+def test_bad_days_is_usage_error(projects):
+    assert eh.main(["--projects-dir", str(projects), "--days", "0"]) == eh.EXIT_USAGE
+
+
+def test_streams_large_file(projects, capsys):
+    path = projects / "-proj"
+    path.mkdir(parents=True)
+    filler = '{"type":"assistant","message":{"content":"' + "y" * 500 + '"}}\n'
+    with (path / "big.jsonl").open("w", encoding="utf-8") as fh:
+        fh.write('{"type":"user","cwd":"/proj","timestamp":"%s","sessionId":"s-big-0000",'
+                 '"message":{"content":"큰 파일 속 발화"}}\n' % RECENT)
+        for _ in range(60000):  # about 30 MB
+            fh.write(filler)
+    started = time.monotonic()
+    assert run(projects) == eh.EXIT_OK
+    assert time.monotonic() - started < 30
+    assert "큰 파일 속 발화" in capsys.readouterr().out
+
+
+def test_cli_entrypoint_runs(projects):
+    write_session(projects / "-proj", "a", [user("엔트리포인트")])
+    res = subprocess.run([sys.executable, str(SCRIPTS / "extract_history.py"),
+                          "--projects-dir", str(projects), "--cwd", "/proj", "--days", "36500"],
+                         capture_output=True, text=True)
+    assert res.returncode == 0 and "엔트리포인트" in res.stdout
+
+
+def test_non_git_cwd_matches_exactly(tmp_path, projects, capsys):
+    home = tmp_path / "home"
+    (home / "other").mkdir(parents=True)
+    write_session(projects / "h", "a", [user("홈에서 한 말", cwd=str(home))])
+    write_session(projects / "o", "b", [user("하위 프로젝트 말", cwd=str(home / "other"),
+                                             session="s-0002-bbbb")])
+    assert run(projects, cwd=str(home)) == eh.EXIT_OK
+    out = capsys.readouterr().out
+    assert "홈에서 한 말" in out and "하위 프로젝트 말" not in out
