@@ -52,3 +52,22 @@ def test_command_delegates_to_skill():
     body = path.read_text(encoding="utf-8")
     assert "socratic-mirror:socratic-inquiry" in body
     assert "$ARGUMENTS" in body
+
+
+GRADER_TYPES = {"regex", "tool_order", "tool_used", "file_exists", "llm", "baseline"}
+
+
+def test_eval_cases_are_well_formed():
+    cases = sorted(p for p in (ROOT / "evals").iterdir() if p.is_dir() and p.name != "results")
+    assert len(cases) == 7
+    for case in cases:
+        assert frontmatter(case / "prompt.md")["max_turns"]
+        graders = sorted((case / "graders").glob("*.md"))
+        assert graders, case.name
+        for grader in graders:
+            fm = frontmatter(grader)
+            assert fm.get("type") in GRADER_TYPES, grader
+            if fm["type"] == "tool_used":
+                assert fm.get("tool"), grader
+            if fm["type"] == "regex":
+                assert fm.get("pattern") and "(?" not in fm["pattern"], grader
