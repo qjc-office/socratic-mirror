@@ -16,7 +16,8 @@ SAMPLES = [
 ]
 
 
-@pytest.mark.parametrize("secret", SAMPLES)
+@pytest.mark.parametrize("secret", SAMPLES,
+                         ids=["openai", "github", "github-pat", "slack", "aws", "jwt"])
 def test_token_patterns_masked(secret):
     out = redact(f"키는 {secret} 입니다")
     assert secret not in out
