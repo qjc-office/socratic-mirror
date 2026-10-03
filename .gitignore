@@ -1,0 +1,13 @@
+.env
+.env.*
+!.env.example
+*.pem
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store
+.claude/settings.local.json
+.claude/checkpoints/
+# 실제 대화 기록은 절대 커밋하지 않는다
+*.jsonl
+!tests/fixtures/**/*.jsonl
