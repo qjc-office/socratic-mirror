@@ -15,13 +15,32 @@ from typing import List, Optional, Tuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from redact import redact  # noqa: E402
+from safe_io import open_private  # noqa: E402
 
 MAX_UTTERANCE = 1000
+MAX_LINE = 2_000_000  # chars; longer jsonl lines are pastes or tool output, skipped unread
 _TAGS = ("system-reminder", "task-notification", "command-name", "command-message",
          "command-args", "local-command-stdout", "local-command-stderr",
          "local-command-caveat", "bash-input", "bash-stdout", "bash-stderr")
 TAG_BLOCK = re.compile(r"<(" + "|".join(_TAGS) + r")>.*?</\1>", re.DOTALL)
 NOISE = {"[Request interrupted by user]", "[Request interrupted by user for tool use]"}
+
+
+def bounded_lines(fh):
+    """Yield lines, or None for a line longer than MAX_LINE (drained, never held whole)."""
+    limit = MAX_LINE
+    while True:
+        line = fh.readline(limit)
+        if not line:
+            return
+        if len(line) >= limit and not line.endswith("\n"):
+            while True:
+                rest = fh.readline(limit)
+                if not rest or rest.endswith("\n"):
+                    break
+            yield None
+            continue
+        yield line
 
 
 def parse_line(line: str) -> Optional[dict]:
@@ -100,8 +119,8 @@ def same_path(a: str, b: str) -> bool:
 def first_cwd(path: Path) -> Optional[str]:
     try:
         with path.open(encoding="utf-8", errors="replace") as fh:
-            for line in fh:
-                rec = parse_line(line)
+            for line in bounded_lines(fh):
+                rec = parse_line(line) if line is not None else None
                 if rec and isinstance(rec.get("cwd"), str):
                     return rec["cwd"]
     except OSError:
@@ -136,16 +155,19 @@ ROW_OVERHEAD = 25  # "YYYY-MM-DD | 12345678 | " plus newline
 
 
 def collect(files: List[Path], cutoff: datetime, max_chars: int):
-    """Return (newest rows that fit max_chars, total utterances, sessions, malformed).
+    """Return (newest rows that fit max_chars, total utterances, sessions, malformed, oversized).
 
     Keeps a bounded min-heap so memory stays near max_chars, not the whole history.
     """
     heap: list = []
-    size = total = malformed = seq = 0
+    size = total = malformed = oversized = seq = 0
     sessions = set()
     for path in files:
         with path.open(encoding="utf-8", errors="replace") as fh:
-            for line in fh:
+            for line in bounded_lines(fh):
+                if line is None:
+                    oversized += 1
+                    continue
                 if not line.strip():
                     continue
                 rec = parse_line(line)
@@ -166,7 +188,7 @@ def collect(files: List[Path], cutoff: datetime, max_chars: int):
                 while len(heap) > 1 and size - len(heap[0][3]) - ROW_OVERHEAD >= max_chars:
                     size -= len(heapq.heappop(heap)[3]) + ROW_OVERHEAD
     rows = [(ts, session, line) for ts, _, session, line in sorted(heap)]
-    return rows, total, len(sessions), malformed
+    return rows, total, len(sessions), malformed, oversized
 
 
 def render(rows, max_chars: int) -> Tuple[List[str], int]:
@@ -198,14 +220,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def write_private(path: Path, text: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    if path.parent.is_symlink() or not path.parent.is_dir():
-        raise OSError(f"refusing to write into {path.parent}: not a real directory")
-    os.chmod(path.parent, 0o700)
-    fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+    with open_private(path, append=False) as fh:
         fh.write(text)
-    os.chmod(path, 0o600)
 
 
 def main(argv: Optional[list] = None) -> int:
@@ -224,7 +240,7 @@ def main(argv: Optional[list] = None) -> int:
         print("no session history in range; try a larger --days or --all-projects",
               file=sys.stderr)
         return EXIT_NO_HISTORY
-    rows, total, sessions, malformed = collect(files, cutoff, args.max_chars)
+    rows, total, sessions, malformed, oversized = collect(files, cutoff, args.max_chars)
     if not total:
         print("session files exist but no human utterances were extracted; "
               "the history format may have changed", file=sys.stderr)
@@ -233,7 +249,7 @@ def main(argv: Optional[list] = None) -> int:
     omitted = total - len(lines)
     header = (f"# socratic-mirror: {len(lines)} utterances, {sessions} sessions, "
               f"scope={'all' if root is None else 'project'}, days={args.days}, "
-              f"omitted={omitted}, malformed={malformed}")
+              f"omitted={omitted}, malformed={malformed}, oversized={oversized}")
     body = "\n".join([header, *lines]) + "\n"
     if args.out:
         try:

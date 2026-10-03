@@ -178,8 +178,29 @@ def test_collect_keeps_only_bounded_newest(projects):
     recs = [user(f"발화{i:03d}", ts=f"2026-09-{1 + i % 28:02d}T{i % 24:02d}:00:00.000Z") for i in range(300)]
     path = write_session(projects / "-proj", "a", recs)
     cutoff = eh.datetime(2000, 1, 1, tzinfo=eh.timezone.utc)
-    kept, total, sessions, malformed = eh.collect([path], cutoff, max_chars=500)
-    assert total == 300 and sessions == 1 and malformed == 0
+    kept, total, sessions, malformed, oversized = eh.collect([path], cutoff, max_chars=500)
+    assert total == 300 and sessions == 1 and malformed == 0 and oversized == 0
     assert sum(len(r[2]) for r in kept) <= 500 + eh.MAX_UTTERANCE + 40
     assert len(kept) < 300
     assert kept == sorted(kept, key=lambda r: r[0])
+
+
+def test_oversized_line_skipped_without_loading(projects, capsys, monkeypatch):
+    monkeypatch.setattr(eh, "MAX_LINE", 1000)
+    huge = '{"type":"user","cwd":"/proj","message":{"content":"' + "z" * 5000 + '"}}'
+    write_session(projects / "-proj", "a", [user("앞 발화"), huge, user("뒤 발화")])
+    assert run(projects) == eh.EXIT_OK
+    out = capsys.readouterr().out
+    assert "앞 발화" in out and "뒤 발화" in out and "zzzz" not in out
+    assert "oversized=1" in out.splitlines()[0]
+
+
+def test_symlinked_out_file_refused(projects, tmp_path):
+    write_session(projects / "-proj", "a", [user("새면 안 되는 말")])
+    victim = tmp_path / "victim.txt"
+    victim.write_text("원본", encoding="utf-8")
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    (cache / "extract.txt").symlink_to(victim)
+    assert run(projects, "--out", str(cache / "extract.txt")) == eh.EXIT_USAGE
+    assert victim.read_text(encoding="utf-8") == "원본"

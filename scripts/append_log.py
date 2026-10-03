@@ -11,6 +11,7 @@ from typing import Optional, TextIO
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from redact import redact  # noqa: E402
+from safe_io import open_private  # noqa: E402
 
 
 def log_path() -> Path:
@@ -28,15 +29,15 @@ def main(argv: Optional[list] = None, stdin: Optional[TextIO] = None) -> int:
         print("empty entry; nothing written", file=sys.stderr)
         return 1
     path = log_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    os.chmod(path.parent, 0o700)
-    stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
     project = args.project or Path.cwd().name
+    stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
     block = f"\n## {stamp} · {project}\n\n{redact(entry)}\n"
-    fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
-    with os.fdopen(fd, "a", encoding="utf-8") as fh:
-        fh.write(block)
-    os.chmod(path, 0o600)
+    try:
+        with open_private(path, append=True) as fh:
+            fh.write(block)
+    except OSError as exc:
+        print(f"cannot write log: {exc}", file=sys.stderr)
+        return 1
     print(path)
     return 0
 

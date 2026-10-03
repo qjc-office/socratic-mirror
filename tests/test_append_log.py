@@ -42,3 +42,14 @@ def test_project_defaults_to_cwd_name_without_shell(tmp_path, monkeypatch):
     text = (tmp_path / "home" / "log.md").read_text(encoding="utf-8")
     assert '· x$(touch pwned)"; echo "' in text
     assert not (weird / "pwned").exists()
+
+
+def test_symlinked_log_refused(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    home.mkdir()
+    victim = tmp_path / "victim.txt"
+    victim.write_text("원본", encoding="utf-8")
+    (home / "log.md").symlink_to(victim)
+    monkeypatch.setenv("SOCRATIC_MIRROR_HOME", str(home))
+    assert append_log.main(["--project", "a"], io.StringIO("새면 안 되는 말")) == 1
+    assert victim.read_text(encoding="utf-8") == "원본"
