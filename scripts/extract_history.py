@@ -150,7 +150,8 @@ def find_session_files(projects_dir: Path, root: Optional[str], cutoff: datetime
     needle = (quoted if exact else quoted[:-1]).encode("utf-8")
     found: List[Path] = []
     unreadable = 0
-    for folder in sorted(p for p in projects_dir.iterdir() if p.is_dir()):
+    # Symlinked folders or files could point outside the history root; skip them.
+    for folder in sorted(p for p in projects_dir.iterdir() if p.is_dir() and not p.is_symlink()):
         for path in sorted(folder.glob("*.jsonl")):
             if path.is_symlink():  # never follow links out of the history folder
                 continue

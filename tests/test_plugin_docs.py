@@ -100,3 +100,8 @@ def test_premise_miner_has_data_boundary():
 def test_readmes_describe_temporary_extract():
     assert "extract.txt" not in (ROOT / "README.md").read_text(encoding="utf-8")
     assert "extract.txt" not in (ROOT / "README.en.md").read_text(encoding="utf-8")
+
+
+def test_skill_reports_partial_extraction():
+    body = (ROOT / "skills" / "socratic-inquiry" / "SKILL.md").read_text(encoding="utf-8")
+    assert "unreadable" in body and "oversized" in body

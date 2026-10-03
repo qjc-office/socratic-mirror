@@ -294,3 +294,13 @@ def test_out_dir_prunes_stale_extracts(projects, tmp_path, capsys):
     os.utime(keep, (old, old))
     assert run(projects, "--out-dir", str(out_dir)) == eh.EXIT_OK
     assert not stale.exists() and keep.exists()
+
+
+def test_symlinked_project_folder_ignored(projects, tmp_path, capsys):
+    write_session(projects / "-proj", "real", [user("진짜 세션")])
+    outside = tmp_path / "sensitive"
+    write_session(outside, "x", [user("링크 폴더 속 내용")])
+    (projects / "alias").symlink_to(outside, target_is_directory=True)
+    assert run(projects) == eh.EXIT_OK
+    out = capsys.readouterr().out
+    assert "진짜 세션" in out and "링크 폴더 속 내용" not in out
